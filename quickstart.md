@@ -1,6 +1,6 @@
 # Quickstart — Premier paiement en 5 minutes
 
-Ce guide crée un paiement carte de test de 1 USD, redirige le client vers un checkout hébergé Moko, et reçoit le résultat via webhook.
+Ce guide crée un paiement carte de 1 USD, redirige le client vers un checkout hébergé Moko, et reçoit le résultat via webhook.
 
 ## Prérequis
 
@@ -9,13 +9,15 @@ Ce guide crée un paiement carte de test de 1 USD, redirige le client vers un ch
 
 Vous avez besoin de :
 
-- `MOKO_API_KEY` — votre clé publique (`nex_test_*` en sandbox, `nex_live_*` en prod)
+- `MOKO_API_KEY` — votre `X-API-Key`
 - `MOKO_API_SECRET` — votre secret HMAC (à garder côté serveur uniquement)
-- `MOKO_BASE_URL` — `https://uc.card.gofreshpay.com` (même URL sandbox et prod ; l'environnement est dérivé des clés)
+- Base URL : `https://uc.card.gofreshpay.com`
 
 ## 1. Signer une requête
 
 Toutes les requêtes marchand sont authentifiées par HMAC-SHA256. Voir [Authentication](/authentication) pour le détail complet.
+
+Message signé = `body_json_string` + `timestamp` (concat directe, sans séparateur).
 
 ::: code-group
 
@@ -28,11 +30,17 @@ API_SECRET = "..."
 BASE = "https://uc.card.gofreshpay.com"
 
 body = json.dumps({
-    "amount": 100,           # int en cents (1.00 USD)
+    "amount": 1.00,
     "currency": "USD",
-    "reference": "INV-001",
-    "customer_email": "client@example.com",
-    "customer_name": "Jean Kabala",
+    "merchant_reference": "INV-001",
+    "callback_url": "https://your-shop.com/webhooks/moko",
+    "bill_to_forename": "Jean",
+    "bill_to_surname": "Kabala",
+    "bill_to_email": "client@example.com",
+    "bill_to_phone": "+243812345001",
+    "bill_to_address_line1": "Av. Kasa-Vubu 42",
+    "bill_to_address_city": "Kinshasa",
+    "bill_to_address_country": "CD",
     "return_url": "https://your-shop.com/order/INV-001",
 }, separators=(",", ":"))
 
@@ -60,11 +68,17 @@ const API_SECRET = '...';
 const BASE = 'https://uc.card.gofreshpay.com';
 
 const body = JSON.stringify({
-  amount: 100,
+  amount: 1.00,
   currency: 'USD',
-  reference: 'INV-001',
-  customer_email: 'client@example.com',
-  customer_name: 'Jean Kabala',
+  merchant_reference: 'INV-001',
+  callback_url: 'https://your-shop.com/webhooks/moko',
+  bill_to_forename: 'Jean',
+  bill_to_surname: 'Kabala',
+  bill_to_email: 'client@example.com',
+  bill_to_phone: '+243812345001',
+  bill_to_address_line1: 'Av. Kasa-Vubu 42',
+  bill_to_address_city: 'Kinshasa',
+  bill_to_address_country: 'CD',
   return_url: 'https://your-shop.com/order/INV-001',
 });
 
@@ -89,8 +103,8 @@ console.log(await r.json());
 ```bash [curl]
 API_KEY="..."
 API_SECRET="..."
-BODY='{"amount":100,"currency":"USD","reference":"INV-001","customer_email":"client@example.com","customer_name":"Jean Kabala","return_url":"https://your-shop.com/order/INV-001"}'
-TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+BODY='{"amount":1.00,"currency":"USD","merchant_reference":"INV-001","callback_url":"https://your-shop.com/webhooks/moko","bill_to_forename":"Jean","bill_to_surname":"Kabala","bill_to_email":"client@example.com","bill_to_phone":"+243812345001","bill_to_address_line1":"Av. Kasa-Vubu 42","bill_to_address_city":"Kinshasa","bill_to_address_country":"CD","return_url":"https://your-shop.com/order/INV-001"}'
+TS=$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)
 SIG=$(printf '%s%s' "$BODY" "$TS" | openssl dgst -sha256 -hmac "$API_SECRET" -r | awk '{print $1}')
 
 curl -X POST https://uc.card.gofreshpay.com/api/v1/payment/orders \
@@ -103,35 +117,64 @@ curl -X POST https://uc.card.gofreshpay.com/api/v1/payment/orders \
 
 :::
 
-## 2. Rediriger le client
-
-La réponse contient un `checkout_url`. Redirigez le navigateur du client vers cette URL :
+## 2. Réponse
 
 ```json
 {
-  "transaction_uuid": "6f719977-efc6-458c-9dea-fefde7133e9c",
-  "checkout_url": "https://uc.card.gofreshpay.com/api/v1/payment/uc/6f719977-...?sig=...",
-  "expires_at": "2026-09-30T10:07:41Z",
-  "status": "PENDING"
+  "status": "success",
+  "data": {
+    "amount": "1.00",
+    "currency": "USD",
+    "transaction_uuid": "FP-20260930-101530-a1b2c3d4-CD",
+    "transaction_status": "PENDING",
+    "links": "https://uc.card.gofreshpay.com/api/v1/payment/FP-20260930-101530-a1b2c3d4-CD?sig=abc123...",
+    "financial_details": {
+      "commission_rate": "3.50",
+      "commission_amount": "0.04",
+      "merchant_amount": "0.96",
+      "bank_commission_amount": "0.03",
+      "freshpay_commission_amount": "0.01"
+    }
+  }
 }
 ```
 
-Le client tape sa carte sur la page hébergée par Moko, valide 3DS (OTP bancaire), puis est redirigé vers le `return_url` que vous avez fourni, avec un query param `?status=succeeded` ou `?status=failed`.
+## 3. Rediriger le client
 
-## 3. Recevoir le webhook
+Redirigez le navigateur du client vers l'URL dans `data.links` :
 
-Configurez un endpoint dans votre backend pour recevoir le webhook (aussi signé HMAC — voir [Webhooks](/card/webhooks)) :
+```python
+# Backend Python — retourner redirect
+from fastapi.responses import RedirectResponse
+resp = r.json()
+return RedirectResponse(resp["data"]["links"], status_code=303)
+```
+
+Le client tape sa carte sur la page hébergée par Moko, valide 3DS (OTP bancaire), puis est redirigé vers votre `return_url` avec des query params (`status=SUCCESS` + `transaction_id` + `amount` + `currency` + `reference`, OU `status=FAILED` + `reason_code` + `message`).
+
+## 4. Recevoir le webhook
+
+Moko POSTe sur votre `callback_url` dès que le paiement est finalisé. Le body est signé HMAC — voir [Webhooks](/card/webhooks) pour la vérification.
 
 ```json
 {
-  "event_type": "PAYMENT",
   "status": "SUCCESS",
-  "transaction_uuid": "6f719977-efc6-458c-9dea-fefde7133e9c",
-  "transaction_id": "7907643500666758704885",
+  "reference": "INV-001",
   "amount": "1.00",
   "currency": "USD",
-  "reference": "INV-001",
-  "timestamp": "2026-09-30T10:32:00Z"
+  "decision": "ACCEPT",
+  "message": "Request was processed successfully.",
+  "transaction_uuid": "FP-20260930-101530-a1b2c3d4-CD",
+  "auth_cavv_result": "3",
+  "customer_name": "Jean Kabala",
+  "customer_email": "client@example.com",
+  "cavv_message": "",
+  "card_type": "Visa",
+  "card_last4": "3172",
+  "card_expiry_date": "12-2028",
+  "card_bin_country": "CD",
+  "card_issuer": "Equity Bank",
+  "card_scheme": "VISA DEBIT"
 }
 ```
 
@@ -142,4 +185,4 @@ Marquez la commande comme payée dans votre DB, envoyez le reçu, expédiez le p
 - [Custom Checkout (Microform)](/card/microform) — checkout intégré sur votre propre domaine
 - [Payment Links](/card/payment-links) — encaisser sans site web
 - [Refunds](/card/refunds) — remboursements partiels ou complets
-- [Testing & Sandbox](/testing-sandbox) — cartes de test
+- [Testing & Sandbox](/testing-sandbox) — comment tester

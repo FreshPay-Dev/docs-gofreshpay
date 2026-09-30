@@ -1,48 +1,87 @@
 # Webhooks
 
-Moko notifie votre backend des événements de paiement de manière asynchrone. Les webhooks sont **la source de vérité** — plus fiables que le redirect client-side (le customer peut fermer son navigateur).
+Moko notifie votre backend des événements de paiement de manière asynchrone. Les webhooks sont **la source de vérité** — plus fiables que le redirect client-side.
 
 ## Événements
 
-| `event_type` | Déclenché quand |
-|---|---|
-| `PAYMENT` | Après charge : `status: SUCCESS` ou `FAILED` |
-| `REFUND` | Après un refund admin réussi (`notify_merchant: true`) |
-| `VOID` | Après un void admin réussi (`notify_merchant: true`) |
+| Trigger | Contient `event_type` ? | Signature signée ? |
+|---|---|---|
+| Paiement finalisé (SUCCESS/FAILED) | ❌ non | ✅ oui |
+| Refund admin réussi | ✅ `REFUND` | ✅ oui |
+| Void admin réussi | ✅ `VOID` | ✅ oui |
+| Annulation client sur checkout | ✅ `PAYMENT_CANCELLATION` | ❌ **non signé** (voir warning) |
+
+::: warning PAYMENT_CANCELLATION non signé
+Le webhook `PAYMENT_CANCELLATION` (déclenché quand le customer annule sur la page checkout) utilise un POST HTTP non signé. Ne l'utilisez pas comme confirmation critique — considérez-le comme un signal informatif. Un vrai `SUCCESS` ou `FAILED` arrivera séparément via le webhook signé standard.
+:::
 
 ## Endpoint côté marchand
 
-Vous devez exposer un endpoint HTTPS qui accepte `POST`. Passez son URL comme :
+Vous exposez un endpoint HTTPS `POST` et passez son URL comme `callback_url` :
 
-- `callback_url` dans `POST /api/v1/payment/orders`, `/api/v1/payment-links`, ou `/api/v1/microform/charge`
-- **OU** en config globale marchand (via `POST /api/v1/merchants/{id}` — support)
+- Dans `POST /api/v1/payment/orders`, `POST /api/v1/payment-links`, ou `POST /api/v1/microform/charge`
 
-## Payload
+## Signature webhook
 
-### PAYMENT
+Chaque webhook signé contient les headers :
+
+| Header | Format |
+|---|---|
+| `X-FreshPay-Signature` | `t=<unix_timestamp>,v1=<hex_signature>` |
+| `X-FreshPay-Timestamp` | `<unix_timestamp>` (redondant, informatif) |
+
+### Algorithme
+
+```
+message   = str(timestamp) + raw_body     # concat directe, PAS de séparateur
+signature = HMAC_SHA256(callback_secret, message).hexdigest()
+```
+
+- `timestamp` = entier Unix (secondes UTC)
+- `raw_body` = les octets exacts du body JSON envoyé par Moko
+  - Moko sérialise avec `json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")`
+  - **Ne PAS re-sérialiser** avant vérification — utilisez le raw body reçu
+- `callback_secret` = secret spécifique par marchand (distinct de `api_secret`)
+
+## Payloads
+
+### PAYMENT (succès ou échec)
+
+Déclenché après capture Cybersource ou refus. **Pas de champ `event_type`** — on distingue via `status`.
 
 ```json
 {
-  "event_type": "PAYMENT",
   "status": "SUCCESS",
-  "transaction_uuid": "6f719977-efc6-458c-9dea-fefde7133e9c",
-  "transaction_id": "7907643500666758704885",
+  "reference": "INV-042",
   "amount": "1.00",
   "currency": "USD",
-  "reference": "INV-042",
-  "reason_code": null,
-  "message": null,
-  "timestamp": "2026-09-30T10:32:00Z"
+  "decision": "ACCEPT",
+  "message": "Request was processed successfully.",
+  "transaction_uuid": "FP-20260930-101530-a1b2c3d4-CD",
+  "auth_cavv_result": "3",
+  "customer_name": "Jean Kabala",
+  "customer_email": "client@example.com",
+  "cavv_message": "",
+  "card_type": "Visa",
+  "card_last4": "3172",
+  "card_expiry_date": "12-2028",
+  "card_bin_country": "CD",
+  "card_issuer": "Equity Bank",
+  "card_scheme": "VISA DEBIT"
 }
 ```
 
+Sur échec : `status` = `FAILED`, `decision` = `REJECT` ou `REVIEW`, `message` contient la raison.
+
 ### REFUND
+
+Déclenché après un refund admin réussi (si `notify_merchant: true` sur l'appel refund).
 
 ```json
 {
   "event_type": "REFUND",
   "status": "SUCCESS",
-  "transaction_uuid": "6f719977-...",
+  "transaction_uuid": "FP-...",
   "reference": "INV-042",
   "cs_payment_id": "7907643500666758704885",
   "cs_refund_id": "7907645194846489004894",
@@ -51,45 +90,75 @@ Vous devez exposer un endpoint HTTPS qui accepte `POST`. Passez son URL comme :
   "currency": "USD",
   "refunded_total": "1.00",
   "remaining": "0.00",
-  "reason": "Client demandé",
+  "reason": "Client demandé — commande annulée",
+  "reason_code": "100",
+  "message": "Request was processed successfully.",
   "timestamp": "2026-09-30T11:00:00Z"
 }
 ```
 
 ### VOID
 
+Déclenché après un void admin réussi (si `notify_merchant: true`).
+
 ```json
 {
   "event_type": "VOID",
   "status": "SUCCESS",
-  "transaction_uuid": "6f719977-...",
+  "transaction_uuid": "FP-...",
+  "reference": "INV-042",
   "cs_payment_id": "7907643500666758704885",
   "cs_void_id": "7907621859236796504887",
   "void_id": 3,
   "amount": "50.00",
   "currency": "USD",
   "reason": "Erreur ops",
+  "reason_code": "100",
+  "message": "Request was processed successfully.",
   "timestamp": "2026-09-30T11:30:00Z"
 }
 ```
 
-## Vérification de signature
+### PAYMENT_CANCELLATION (non signé)
 
-Chaque webhook Moko contient un header `X-FreshPay-Signature` = HMAC-SHA256 du body avec votre `callback_secret` (spécifique par marchand, différent de votre `api_secret`).
+Déclenché quand le customer clique "Annuler" sur la page checkout. **Non signé** (bug backend documenté).
 
-::: warning
-`callback_secret` est **distinct** de votre `api_secret`. Contactez support pour le récupérer.
-:::
+```json
+{
+  "event_type": "PAYMENT_CANCELLATION",
+  "transaction_uuid": "FP-...",
+  "reference": "INV-042",
+  "amount": "1.00",
+  "currency": "USD",
+  "timestamp": "2026-09-30T10:07:00Z"
+}
+```
+
+## Vérifier une signature
 
 ### Exemple Python (FastAPI)
 
 ```python
-import hmac, hashlib
+import hmac, hashlib, os
 from fastapi import APIRouter, Request, HTTPException
 
-CALLBACK_SECRET = "..."  # depuis vos vars d'env
+CALLBACK_SECRET = os.environ["MOKO_CALLBACK_SECRET"]
 
 router = APIRouter()
+
+def verify_moko_signature(header: str, raw_body: bytes) -> bool:
+    """Parse header 't=UNIX,v1=HEX', reconstruit signature, compare."""
+    try:
+        parts = dict(p.split("=", 1) for p in header.split(","))
+        ts = parts["t"]
+        received_sig = parts["v1"]
+    except Exception:
+        return False
+
+    message = ts.encode() + raw_body  # concat directe
+    expected = hmac.new(CALLBACK_SECRET.encode(), message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(received_sig, expected)
+
 
 @router.post("/webhooks/moko")
 async def moko_webhook(request: Request):
@@ -97,24 +166,27 @@ async def moko_webhook(request: Request):
     if not signature:
         raise HTTPException(400, "Missing signature")
 
-    body = await request.body()
-    expected = hmac.new(
-        CALLBACK_SECRET.encode(),
-        body,
-        hashlib.sha256,
-    ).hexdigest()
-
-    if not hmac.compare_digest(signature, expected):
+    raw_body = await request.body()
+    if not verify_moko_signature(signature, raw_body):
         raise HTTPException(403, "Invalid signature")
 
     payload = await request.json()
+    event = payload.get("event_type")
 
-    if payload["event_type"] == "PAYMENT" and payload["status"] == "SUCCESS":
-        # Marquer commande payée
+    if event == "REFUND":
+        # créditer customer
         pass
-    elif payload["event_type"] == "REFUND":
-        # Créditer le customer
+    elif event == "VOID":
+        # rollback interne
         pass
+    elif event == "PAYMENT_CANCELLATION":
+        # signal informatif — attendre webhook final
+        pass
+    else:
+        # PAYMENT (pas de event_type) — status détermine action
+        if payload["status"] == "SUCCESS":
+            # marquer commande payée
+            pass
 
     return {"received": True}
 ```
@@ -125,76 +197,77 @@ async def moko_webhook(request: Request):
 import express from 'express';
 import crypto from 'node:crypto';
 
-const CALLBACK_SECRET = '...';
+const CALLBACK_SECRET = process.env.MOKO_CALLBACK_SECRET;
+
+function verifyMokoSignature(header, rawBody) {
+  const parts = Object.fromEntries(header.split(',').map(p => p.split('=')));
+  const ts = parts.t;
+  const receivedSig = parts.v1;
+  if (!ts || !receivedSig) return false;
+
+  const message = Buffer.concat([Buffer.from(ts), rawBody]);
+  const expected = crypto.createHmac('sha256', CALLBACK_SECRET)
+    .update(message)
+    .digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(receivedSig), Buffer.from(expected));
+}
+
 const app = express();
 
 // IMPORTANT: raw body pour la vérif HMAC
-app.post('/webhooks/moko', express.raw({type: 'application/json'}), (req, res) => {
-  const signature = req.headers['x-freshpay-signature'];
-  if (!signature) return res.status(400).send('Missing signature');
-
-  const expected = crypto.createHmac('sha256', CALLBACK_SECRET)
-    .update(req.body)
-    .digest('hex');
-
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
-    return res.status(403).send('Invalid signature');
+app.post('/webhooks/moko',
+  express.raw({ type: 'application/json' }),
+  (req, res) => {
+    const sig = req.headers['x-freshpay-signature'];
+    if (!sig || !verifyMokoSignature(sig, req.body)) {
+      return res.status(403).send('Invalid signature');
+    }
+    const payload = JSON.parse(req.body.toString());
+    // ... traiter
+    res.json({ received: true });
   }
-
-  const payload = JSON.parse(req.body.toString());
-  // ... traiter payload
-
-  res.json({received: true});
-});
+);
 ```
 
 ## Idempotence
 
-Moko peut réessayer un webhook plusieurs fois (jusqu'à 5x avec backoff exponentiel) en cas d'erreur réseau ou 5xx de votre serveur. Votre handler doit être **idempotent** :
+Moko peut réessayer si votre serveur timeout ou renvoie 5xx. Votre handler doit être **idempotent** :
 
 ```python
-# BAD - décrémente le stock à chaque webhook reçu
-def handle_payment_success(tx_id):
+# BAD
+def handle_payment_success(tx_uuid):
     stock -= 1  # ❌ si reçu 3x, stock -= 3
 
-# GOOD - check état en DB avant de traiter
-def handle_payment_success(tx_id):
-    order = get_order_by_tx(tx_id)
+# GOOD
+def handle_payment_success(tx_uuid):
+    order = get_order_by_tx(tx_uuid)
     if order.status != 'pending':
         return  # déjà traité
     order.status = 'paid'
     stock -= 1
 ```
 
-## Retry policy
-
-- **1er retry** : +1 min
-- **2e retry** : +5 min
-- **3e retry** : +30 min
-- **4e retry** : +2h
-- **5e retry** : +6h
-
-Après 5 échecs consécutifs, le webhook est marqué en dead-letter. Contactez support pour re-livraison manuelle.
-
 ## Codes de réponse attendus
 
-- **2xx** — succès, ne retry pas
-- **4xx** (sauf 429) — erreur permanente, ne retry pas
-- **429** — throttle, retry après `Retry-After` header
-- **5xx** — erreur temporaire, retry
+- **2xx** — succès, Moko ne retry pas
+- **4xx** (sauf 429) — erreur permanente, Moko ne retry pas
+- **429** — throttle
+- **5xx** — erreur temporaire, Moko peut retry
 
 ## Debug
 
-Testez la réception avec l'endpoint de debug Moko :
+Tester la réception avec les endpoints Moko :
 
 ```bash
-# POSTer un fake webhook vers votre URL de test
 curl -X POST https://uc.card.gofreshpay.com/api/v1/test/test-callback \
   -H "Content-Type: application/json" \
-  -d '{"event_type":"PAYMENT","status":"SUCCESS","test":true}'
+  -d '{"your":"payload","for":"testing"}'
 
 # Consulter historique reçu
 curl https://uc.card.gofreshpay.com/api/v1/test/test-callback/history
+
+# Dernier reçu
+curl https://uc.card.gofreshpay.com/api/v1/test/test-callback/last
 ```
 
-Pour tester en local : utilisez [ngrok](https://ngrok.com/) pour exposer votre serveur dev.
+Pour tester en local avec Moko qui POSTe chez vous : utilisez [ngrok](https://ngrok.com/) pour exposer votre serveur dev en HTTPS.

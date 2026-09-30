@@ -1,92 +1,108 @@
 # Response codes
 
-Codes retournés par Cybersource et surfacés dans nos réponses `POST /charge` sous le champ `reason_code`.
+Codes retournés par Cybersource et surfacés dans nos webhooks (champ `message` + `decision`) ou dans les réponses `/microform/charge` (champ `reason_code`).
+
+::: info Source de vérité
+Cette page liste les codes que nous avons observés en production ou explicitement gérés dans notre backend. Pour la liste exhaustive et à jour, consultez la [documentation officielle Cybersource](https://developer.cybersource.com/api/reference/response-codes.html).
+:::
 
 ## Codes de succès
 
 | rc | Signification |
 |---|---|
-| `100` | Requête traitée avec succès. Pas systématiquement présent dans les 201 responses — utiliser `status` en priorité. |
+| `100` | Succès. Peut être absent du top-level dans certaines réponses `/pts/v2/payments` — dans ce cas se baser sur le champ `status` (`AUTHORIZED`, `PARTIAL_AUTHORIZED`). |
 
-## Codes de refus paiement
+## Codes 3DS Payer Authentication
 
-| rc | Signification | Retry ? |
-|---|---|---|
-| `201` | Refusé par la banque émettrice — code générique | Non (contacter banque) |
-| `202` | Carte expirée | Non |
-| `203` | Refus général | Non |
-| `204` | Fonds insuffisants | Après paiement |
-| `205` | Carte perdue/volée | Non |
-| `207` | Compte suspendu | Non |
-| `208` | Carte inactive | Non |
-| `209` | Refus émetteur inconnu | Non |
-| `210` | Limite de crédit dépassée | Non |
-| `211` | CVV invalide | Corriger |
-| `221` | Compte gelé | Non |
-| `230` | AVS refus | Corriger adresse |
-| `231` | Numéro de compte invalide | Corriger |
-| `232` | Type de carte non accepté par processeur | Non |
-| `233` | Refus général par le processeur | Non |
-| `240` | Type de carte ne correspond pas au numéro | Corriger |
+Observés dans notre flow Microform 3DS :
+
+| rc | Signification |
+|---|---|
+| `475` | Cardholder enrolled dans 3DS — challenge en cours (statut `PENDING_AUTHENTICATION`, intermédiaire) |
+| `476` | 3DS authentication failed (OTP incorrect, timeout, refus customer, session Entersekt expirée) |
+
+Notre `/microform/charge` retourne `reason_code: "476"` si le pré-check `/risk/v1/authentication-results` détecte que le challenge n'a pas abouti.
 
 ## Codes Decision Manager (fraud engine)
 
-| rc | Signification | Notes |
-|---|---|---|
-| `480` | Marked for review — Decision Manager veut analyse manuelle | Hold shipping en attente confirmation |
-| `481` | **Rejected by Decision Manager** — règle fraud a fired | Auth reversée automatiquement. Check `riskInformation.rules` pour la règle exacte |
-
-::: warning Non 3Ds Reject
-Sur notre profile Equity Bank, la règle `Non 3Ds Reject` fire si une tx carte n'a pas été authentifiée 3DS. Si vous utilisez Microform, assurez-vous d'appeler `/pa-setup` + `/pa-enroll` + passer `authentication_transaction_id` dans `/charge`. Voir [3DS Payer Authentication](/card/3ds).
-:::
-
-## Codes 3DS Payer Auth
-
-| rc | Signification |
-|---|---|
-| `475` | Cardholder enrolled dans 3DS — challenge en cours (PENDING, pas final) |
-| `476` | 3DS authentication failed (wrong OTP, timeout, refus customer) |
-| `478` | Merchant fraud reject |
-
-## Codes techniques
-
 | rc | Signification | Action |
 |---|---|---|
-| `101` | Un ou plusieurs champs requis manquants | Corriger payload |
-| `102` | Validation error sur un champ | Corriger payload |
-| `104` | Merchant reference déjà utilisé | Idempotence — retourner état existant |
-| `150` | Erreur générale Cybersource | Retry avec backoff |
-| `151` | Timeout Cybersource | Retry |
-| `152` | Timeout processeur | Retry avec délai |
+| `480` | Marked for review — DM veut analyse manuelle | Auth OK, mais hold shipping/service jusqu'à confirmation manuelle |
+| `481` | **Rejected by Decision Manager** — règle fraud a fired | Auth reversée automatiquement par CS. Check `riskInformation.rules` pour identifier la règle |
 
-## Codes Refund
+::: warning Non 3Ds Reject (rc=481 sur notre profile)
+Sur notre profile Cybersource `Equity Bank Standard Profile`, la règle `Non 3Ds Reject` fire automatiquement si une tx carte n'est pas authentifiée 3DS. Pour Microform, **assurez-vous d'appeler `/pa-setup` + `/pa-enroll` + de passer `authentication_transaction_id` dans `/charge`**. Voir [3DS Payer Authentication](/card/3ds).
 
-| rc | Signification |
-|---|---|
-| `100` | Refund initié avec succès |
-| `102` | Refund invalid data |
-| `234` | Refund décliné par processeur |
+Le Hosted Checkout (UC) gère 3DS automatiquement — pas d'action requise côté marchand.
+:::
 
 ## Codes Void
 
 | rc | Signification |
 |---|---|
 | `100` | Void OK |
-| `236` | Transaction déjà voided |
-| `246` | Cannot be voided at this time (settlement déjà passé) — use [refund](/card/refunds) |
+| `236` | Transaction déjà voided ou reversée (idempotence : c'est un no-op) |
+| `246` | Cannot be voided at this time — settlement CS déjà passé. Utilisez [Refund](/card/refunds) à la place. |
 
-## Interpréter les status normalisés Moko
+## Codes Refund
 
-Notre `/charge` retourne un `status` normalisé :
+| rc | Signification |
+|---|---|
+| `100` | Refund initié avec succès |
 
-| Moko `status` | Basé sur CS status | Interprétation marchand |
+Erreurs refund (montant invalide, tx introuvable, etc.) sont retournées avec status HTTP 4xx et un `detail` textuel — pas via reason_code.
+
+## Codes de refus paiement courants
+
+Les codes ci-dessous sont documentés dans la référence Cybersource officielle. Ce sont les codes émis par la banque émettrice via le processeur (Equity Bank Kenya dans notre cas) :
+
+| rc | Signification typique |
+|---|---|
+| `201` | Refus général de la banque émettrice |
+| `202` | Carte expirée |
+| `203` | Refus général du processeur |
+| `204` | Fonds insuffisants |
+| `205` | Carte perdue ou volée |
+| `207` | Compte suspendu |
+| `208` | Carte inactive |
+| `210` | Limite de crédit dépassée |
+| `211` | CVV invalide (mismatch) |
+| `230` | AVS refus — adresse ne correspond pas |
+| `231` | Numéro de compte invalide |
+| `232` | Type de carte non accepté par le processeur |
+| `233` | Refus général par le processeur |
+| `240` | Type de carte ne correspond pas au préfixe du numéro |
+
+Ces codes peuvent varier légèrement selon l'issuer et le pays. Considérez toujours le `message` textuel retourné en complément.
+
+## Interprétation `status` normalisé Moko (`/microform/charge`)
+
+Notre `/microform/charge` normalise le `status` Cybersource selon cette logique (extrait du code) :
+
+| Moko `status` | CS status correspondant | Interprétation marchand |
 |---|---|---|
-| `SUCCESS` | `AUTHORIZED`, `PARTIAL_AUTHORIZED` | Money committed, ship the product |
-| `SUCCESS` (avec warning log) | `AUTHORIZED_PENDING_REVIEW` | DM veut review — hold shipping jusqu'à confirmation |
-| `FAILED` | `DECLINED`, `AUTHORIZED_RISK_DECLINED`, `PENDING_AUTHENTICATION`, `PENDING_REVIEW`, `INVALID_REQUEST` | Ne pas ship, montrer erreur customer |
-| `3DS_AUTHENTICATION_FAILED` | (interne — pré-check avant charge) | Customer n'a pas complété 3DS |
+| `SUCCESS` | `AUTHORIZED`, `PARTIAL_AUTHORIZED` | Money committed. Ship le produit / service. |
+| `SUCCESS` (log warning) | `AUTHORIZED_PENDING_REVIEW` | DM veut review manuel. Ne PAS ship — attendre confirmation support. |
+| `FAILED` | `DECLINED`, `AUTHORIZED_RISK_DECLINED`, `PENDING_AUTHENTICATION`, `PENDING_REVIEW`, `INVALID_REQUEST` | Aucun charge. Montrer erreur customer. |
+| `FAILED` (défensif) | Tout autre status inattendu | Log warning pour investigation support. |
+
+## Interprétation `transaction_status` (POST /payment/status)
+
+`transaction_status` correspond à la colonne DB `cybersource_transactions.status` — enum :
+
+| Value | Signification |
+|---|---|
+| `PENDING` | Tx créée, checkout pas encore complété |
+| `SUCCESS` | Charge OK |
+| `FAILED` | Charge échoué (declined, 3DS fail, etc.) |
+| `CANCELLED` | Customer a cliqué "Annuler" sur checkout |
+| `EXPIRED` | 20 min TTL dépassé sans complétion |
+| `REFUNDED` | Totalement refundée |
+| `PARTIALLY_REFUNDED` | Partiellement refundée |
+| `VOIDED` | Voided avant settlement |
 
 ## Voir aussi
 
 - [Erreurs (RFC 7807)](/references/errors)
 - [Sécurité](/references/security)
+- [Cybersource official reason codes](https://developer.cybersource.com/api/reference/response-codes.html)
