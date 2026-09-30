@@ -1,0 +1,15 @@
+{
+  "name": "docs-gofreshpay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Documentation publique Moko Afrika — docs.gofreshpay.com",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.5.0"
+  }
+}
