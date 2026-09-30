@@ -15,8 +15,15 @@ hero:
     - theme: alt
       text: Intégrer la carte
       link: /card/overview
+    - theme: alt
+      text: Intégrer Mobile Money
+      link: /mobile-money/overview
 
 features:
+  - title: Mobile Money
+    details: M-Pesa, Airtel, Orange, Afrimoney. Collection (C2B) et Withdrawal (B2C) via une seule API — 4 opérateurs, aucune intégration par opérateur.
+    link: /mobile-money/overview
+    linkText: Documentation Mobile Money
   - title: Carte bancaire
     details: Visa, MasterCard. 3DS Payer Authentication automatique. Checkout hébergé Moko OU custom sur votre domaine via Microform.
     link: /card/overview

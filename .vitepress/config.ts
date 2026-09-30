@@ -27,6 +27,7 @@ export default defineConfig({
     nav: [
       { text: 'Quickstart', link: '/quickstart' },
       { text: 'Card', link: '/card/overview' },
+      { text: 'Mobile Money', link: '/mobile-money/overview' },
       { text: 'Références', link: '/references/response-codes' },
       { text: 'Site', link: 'https://gofreshpay.com' },
     ],
