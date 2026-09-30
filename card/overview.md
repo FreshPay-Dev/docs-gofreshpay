@@ -62,3 +62,9 @@ Moko supporte 3 modes d'encaissement carte. Choisissez selon votre contexte.
 - Choisissez votre mode et suivez le guide dédié
 - Lisez [Testing & Sandbox](/testing-sandbox) pour les cartes de test
 - Configurez vos [Webhooks](/card/webhooks) avant d'aller en prod
+
+## Marchands historiques Secure Acceptance
+
+Un 4ème mode existe côté backend : **Secure Acceptance (SA)**, l'implémentation carte première génération de Moko. Les marchands historiques continuent d'y être servis sans interruption, mais **aucune nouvelle intégration ne passe par SA** — tous les nouveaux comptes sont provisionnés en UC. Les 3 modes ci-dessus sont les seuls proposés pour de nouvelles intégrations.
+
+Pour comprendre SA (si vous êtes marchand historique) et la roadmap de migration, voir [Secure Acceptance (legacy)](/card/secure-acceptance-legacy).

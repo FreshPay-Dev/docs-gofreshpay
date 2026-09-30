@@ -54,6 +54,7 @@ export default defineConfig({
           { text: 'Refunds', link: '/card/refunds' },
           { text: 'Voids', link: '/card/voids' },
           { text: 'Webhooks', link: '/card/webhooks' },
+          { text: 'Secure Acceptance (legacy)', link: '/card/secure-acceptance-legacy' },
         ],
       },
       {
