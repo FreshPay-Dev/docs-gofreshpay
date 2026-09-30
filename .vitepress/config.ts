@@ -57,9 +57,13 @@ export default defineConfig({
       },
       {
         text: 'Mobile Money',
-        collapsed: true,
+        collapsed: false,
         items: [
-          { text: 'Coming soon', link: '/mobile-money/coming-soon' },
+          { text: 'Overview', link: '/mobile-money/overview' },
+          { text: 'Collection (Deposit)', link: '/mobile-money/collection' },
+          { text: 'Withdrawal (Payout)', link: '/mobile-money/withdrawal' },
+          { text: 'Verify', link: '/mobile-money/verify' },
+          { text: 'Webhooks', link: '/mobile-money/webhooks' },
         ],
       },
       {

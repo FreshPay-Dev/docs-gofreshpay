@@ -36,7 +36,7 @@ features:
 Moko Afrika est le premier processeur de paiement multi-canal fait pour les marchands de RDC. Une API REST simple, une auth HMAC signée, deux modes d'encaissement disponibles maintenant :
 
 - **Carte bancaire** — Visa, MasterCard, avec 3DS Secure. Powered by Cybersource + Equity Bank Kenya.
-- **Mobile Money** — M-Pesa Vodacom, Airtel Money, Orange Money, Afrimoney. *(documentation en cours de rédaction — [contact](mailto:dev@gofreshpay.com))*
+- **Mobile Money** — M-Pesa Vodacom, Airtel Money, Orange Money, Afrimoney. Collection (C2B) et Withdrawal (B2C) via une seule API REST. [→ Documentation](/mobile-money/overview)
 
 ## Pour qui
 
