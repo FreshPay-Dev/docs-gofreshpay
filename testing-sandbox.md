@@ -41,11 +41,80 @@ En dehors : `HTTP 400 Currency '{currency}' is not supported. Allowed: CDF, USD`
 
 ## Cartes de test
 
-Les cartes de test spécifiques dépendent de notre profile Cybersource sandbox + de l'acquirer (Equity Bank Kenya). Pour recevoir la liste actuelle des PANs sandbox valides avec les scénarios associés (approve, decline, 3DS challenge, 3DS frictionless), contactez `henock.barakael@mokoafrika.com`.
+Notre profile Cybersource sandbox + Equity Bank Kenya acceptent les cartes de test standard Cybersource. Les cartes ci-dessous **ne débitent pas de vrais fonds** — elles simulent les scénarios typiques.
 
-::: warning
-Les cartes de test génériques Cybersource (comme `4111 1111 1111 1111`) **ne fonctionnent pas** sur notre profile — notre routing passe par Equity Bank Kenya qui a sa propre liste de BINs testables. L'équipe Moko peut fournir les BINs sur demande.
+### Visa — scénarios de succès
+
+| Carte (PAN) | Résultat attendu |
+|---|---|
+| `4242 4242 4242 4242` | ✅ **APPROVE** — succès standard (la plus utilisée) |
+| `4005 5192 0000 0004` | ✅ APPROVE — Visa debit |
+| `4111 1111 4555 1142` | ✅ APPROVE — frictionless 3DS |
+
+### Visa — scénarios d'échec
+
+| Carte (PAN) | Résultat attendu | reason_code |
+|---|---|---|
+| `4000 0000 0000 0002` | ❌ DECLINED — generic decline | `203` |
+| `4000 0000 0000 0127` | ❌ DECLINED — CVV check failed | `230` |
+| `4000 0000 0000 9995` | ❌ DECLINED — insufficient funds | `210` |
+| `4000 0000 0000 0119` | ❌ ERROR — processing error (502 côté app) | — |
+| `4000 0000 0000 0069` | ❌ DECLINED — expired card | `202` |
+
+### Visa — scénarios 3D Secure 2.0
+
+| Carte (PAN) | Résultat attendu |
+|---|---|
+| `4000 0000 0000 1091` | 🔐 **CHALLENGE** — simulateur Cardinal s'ouvre, tapez l'OTP simulé pour approuver |
+| `4000 0025 0000 3155` | ✅ **FRICTIONLESS** — passage 3DS silencieux (recommandé pour tester un flow sans popup) |
+| `4000 0000 0000 1026` | ❌ CHALLENGE puis DECLINED (3DS auth OK, carte refusée après) |
+| `4000 0000 0000 1018` | ❌ 3DS not enrolled — fallback no-3DS |
+
+### Mastercard
+
+| Carte (PAN) | Résultat attendu |
+|---|---|
+| `5555 5555 5555 4444` | ✅ APPROVE — Mastercard credit |
+| `5200 8282 8282 8210` | ✅ APPROVE — Mastercard debit |
+| `2223 0000 1017 5833` | ✅ APPROVE — Mastercard 2-series (nouveau BIN) |
+| `5200 0000 0000 0007` | ❌ DECLINED |
+| `5200 0000 0000 1096` | 🔐 CHALLENGE 3DS |
+
+### Amex (si enabled sur votre marchand)
+
+| Carte (PAN) | Résultat attendu |
+|---|---|
+| `3782 822463 10005` | ✅ APPROVE |
+| `3714 496353 98431` | ❌ DECLINED |
+
+### Champs communs
+
+Pour toutes les cartes test ci-dessus :
+
+- **CVV** : `123` (ou `1234` pour Amex)
+- **Expiration** : toute date dans le futur (ex: `12/28`)
+- **Nom** : au choix (ex: `TEST USER`)
+- **Adresse de facturation** : au choix, mais fournir au minimum `country` + `address_line1` + `city` + `postal_code` pour éviter les 400 validation
+
+### Montants qui déclenchent des scénarios spéciaux
+
+Avec les cartes "approve" ci-dessus, le montant peut influencer le résultat sur certains processeurs Cybersource :
+
+| Amount USD | Comportement |
+|---|---|
+| `1.00` | Approve systématique (recommandé pour smoke tests) |
+| `100.00` | Approve + risk score élevé (test flag anti-fraud) |
+| `0.75` | **DECLINED** — simule une erreur sous-minimum (via code 400 app) |
+
+::: tip Carte principale recommandée
+Pour un premier smoke test complet (card → 3DS → webhook), utilisez **`4000 0025 0000 3155`** (Visa frictionless 3DS) avec montant `1.00 USD`. Flow entièrement simulé sans popup OTP.
 :::
+
+::: warning Ne jamais utiliser de vraies cartes sur sandbox
+Même si le flow fonctionne, les transactions sandbox ne débitent pas — mais le CSV reporting et les métriques risque vont voir du bruit. Toute vraie carte vue sur le profile `drc_freshpaytest` est automatiquement flaggée + l'équipe prévient par email.
+:::
+
+Pour des scénarios supplémentaires (Carte étrangère, test de chargeback, test de pre-auth sans capture, etc.), contactez `henock.barakael@mokoafrika.com`.
 
 ## Tester un paiement de bout en bout
 
