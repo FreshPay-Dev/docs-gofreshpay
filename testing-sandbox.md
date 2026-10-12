@@ -2,16 +2,24 @@
 
 ## Environnements
 
-Une seule base URL :
+Moko fournit **deux environnements distincts**, chacun avec son propre domaine et son propre tenant Cybersource :
 
-```
-https://uc.card.gofreshpay.com
-```
+| | Sandbox (test) | Production |
+|---|---|---|
+| **Base URL** | `https://uc-test.card.gofreshpay.com` | `https://uc.card.gofreshpay.com` |
+| **Clés marchand** | `is_test=1` | `is_test=0` (live) |
+| **Tenant Cybersource** | `drc_freshpaytest` (sandbox) | `drc_freshpay` (prod) |
+| **Argent réellement débité** | Non — simulation | Oui — vraies cartes |
+| **Pour qui** | Développement, intégration, QA | Trafic réel marchand |
 
-L'environnement (`development` / `production`) est **rattaché à votre profile marchand** côté serveur. Une clé marchand `is_test=1` ne peut pas encaisser en production.
+Pour obtenir vos clés sandbox + l'accès à un compte marchand de test, contactez `dev@gofreshpay.com`.
+
+::: tip Développez toujours sur sandbox d'abord
+Avant de recevoir vos clés `live`, vous devez démontrer un flow complet signé HMAC sur `uc-test.card.gofreshpay.com`. Voir la [checklist en bas de page](#passer-en-production).
+:::
 
 ::: danger Cross-environment strictement bloqué
-Utiliser une clé sandbox sur un endpoint prod (ou l'inverse) → **HTTP 403 `Unauthorized environment`**. Vérifiez vos variables d'environnement au démarrage.
+Utiliser une clé sandbox sur l'endpoint prod (ou l'inverse) → **HTTP 403 `Unauthorized environment`**. Vérifiez `MOKO_BASE_URL` et vos clés au démarrage de votre app.
 :::
 
 ## Montants minimum
@@ -33,15 +41,15 @@ En dehors : `HTTP 400 Currency '{currency}' is not supported. Allowed: CDF, USD`
 
 ## Cartes de test
 
-Les cartes de test spécifiques dépendent de votre profile Cybersource + de l'acquirer (Equity Bank Kenya). Pour recevoir la liste actuelle des PANs sandbox valides, contactez `dev@gofreshpay.com`.
+Les cartes de test spécifiques dépendent de notre profile Cybersource sandbox + de l'acquirer (Equity Bank Kenya). Pour recevoir la liste actuelle des PANs sandbox valides avec les scénarios associés (approve, decline, 3DS challenge, 3DS frictionless), contactez `dev@gofreshpay.com`.
 
 ::: warning
-Les cartes de test génériques Cybersource (comme `4111 1111 1111 1111`) ne fonctionnent pas nécessairement sur notre profile production car il route via Equity Bank Kenya. Équipe Moko peut fournir les BINs testables sur demande.
+Les cartes de test génériques Cybersource (comme `4111 1111 1111 1111`) **ne fonctionnent pas** sur notre profile — notre routing passe par Equity Bank Kenya qui a sa propre liste de BINs testables. L'équipe Moko peut fournir les BINs sur demande.
 :::
 
 ## Tester un paiement de bout en bout
 
-Voir [Quickstart](/quickstart) pour l'exemple complet. Le flow :
+Voir [Quickstart](/quickstart) pour l'exemple complet (en remplaçant `BASE_URL` par `https://uc-test.card.gofreshpay.com`). Le flow :
 
 1. `POST /api/v1/payment/orders` avec vos clés sandbox → `data.links`
 2. Ouvrir `data.links` dans un navigateur
@@ -50,6 +58,28 @@ Voir [Quickstart](/quickstart) pour l'exemple complet. Le flow :
 5. Redirect vers votre `return_url?status=SUCCESS&...`
 6. Webhook envoyé sur votre `callback_url` (source de vérité)
 
+### Exemple curl sandbox
+
+```bash
+# 1. Signer la requête (voir /authentication pour le détail HMAC)
+API_KEY="your_sandbox_test_key"
+API_SECRET="your_sandbox_secret"
+BASE_URL="https://uc-test.card.gofreshpay.com"
+TIMESTAMP=$(date +%s)
+BODY='{"amount":1.00,"currency":"USD","merchant_reference":"test-001","callback_url":"https://your-shop.com/webhooks/moko"}'
+SIGNATURE=$(printf "%s%s" "$BODY" "$TIMESTAMP" | openssl dgst -sha256 -hmac "$API_SECRET" | awk '{print $NF}')
+
+# 2. Créer l'order (sandbox)
+curl -X POST "$BASE_URL/api/v1/payment/orders" \
+  -H "X-API-Key: $API_KEY" \
+  -H "X-Timestamp: $TIMESTAMP" \
+  -H "X-Signature: $SIGNATURE" \
+  -H "Content-Type: application/json" \
+  -d "$BODY"
+```
+
+Réponse attendue : `200 OK` avec `data.links` (URL de checkout hébergée) et `data.transaction_uuid`.
+
 ## Vérifier vos webhooks
 
 Pour tester la réception des webhooks en local (avant d'avoir un domaine public) :
@@ -57,34 +87,40 @@ Pour tester la réception des webhooks en local (avant d'avoir un domaine public
 - **ngrok** — `ngrok http 8000` puis passez l'URL `https://xxx.ngrok.io/webhook` comme `callback_url`
 - **webhook.site** — pour inspecter le payload et la signature sans backend
 
-Moko fournit aussi des endpoints pour tester manuellement la réception :
+Moko fournit aussi des endpoints de test sur **sandbox** pour recevoir manuellement des webhooks fake :
 
 ```bash
+BASE_URL="https://uc-test.card.gofreshpay.com"
+
 # Endpoint test qui reçoit un webhook fake et le stocke
-curl -X POST https://uc.card.gofreshpay.com/api/v1/test/test-callback \
+curl -X POST "$BASE_URL/api/v1/test/test-callback" \
   -H "Content-Type: application/json" \
   -d '{"your":"payload","for":"testing"}'
 
 # Consulter l'historique reçu
-curl https://uc.card.gofreshpay.com/api/v1/test/test-callback/history
+curl "$BASE_URL/api/v1/test/test-callback/history"
 
 # Dernier reçu
-curl https://uc.card.gofreshpay.com/api/v1/test/test-callback/last
+curl "$BASE_URL/api/v1/test/test-callback/last"
 
 # Vider l'historique
-curl -X DELETE https://uc.card.gofreshpay.com/api/v1/test/test-callback/clear
+curl -X DELETE "$BASE_URL/api/v1/test/test-callback/clear"
 ```
+
+Ces endpoints n'existent **que sur sandbox** — pas sur prod.
 
 ## Passer en production
 
-Checklist avant d'utiliser vos clés `live` :
+Checklist avant de recevoir vos clés `live` :
 
-- [ ] Signature HMAC verifiée sur au moins 10 paiements sandbox
+- [ ] Signature HMAC vérifiée sur au moins 10 paiements sandbox
+- [ ] Flow complet sandbox testé : création order → checkout → webhook reçu → statut persisté
 - [ ] Webhook receiver stable, signature validée, idempotent
 - [ ] Timeouts network gérés (Moko API : 20s max recommandé)
 - [ ] Logs structurés en place
 - [ ] Certificat SSL valide sur votre `return_url` et `callback_url`
+- [ ] Variables d'env séparées `MOKO_BASE_URL`, `MOKO_API_KEY`, `MOKO_API_SECRET` pour sandbox vs prod
 - [ ] Support customer prêt pour gérer les cas DECLINED / 3DS failed
 - [ ] Réconciliation quotidienne prévue
 
-Une fois checklist ✅, contactez `dev@gofreshpay.com` pour recevoir vos clés production.
+Une fois checklist ✅, contactez `dev@gofreshpay.com` pour recevoir vos clés production et basculer `MOKO_BASE_URL` vers `https://uc.card.gofreshpay.com`.
