@@ -49,7 +49,7 @@ Moko Afrika est le premier processeur de paiement multi-canal fait pour les marc
 
 - **E-commerce** — WooCommerce, PrestaShop, ou site custom
 - **Marchands physiques** — POS, restaurants, agents commerciaux (via Payment Links)
-- **SaaS et abonnements** — checkout embed, refunds programmatiques
+- **SaaS et abonnements** — checkout embed, flow billing récurrent
 - **Institutions** — écoles, mutuelles, ONG, coopératives
 
 ## Commencer
@@ -59,7 +59,7 @@ Moko Afrika est le premier processeur de paiement multi-canal fait pour les marc
 curl https://docs.gofreshpay.com/api/health
 
 # 2. Créer un compte marchand
-# Contactez dev@gofreshpay.com pour vos clés API sandbox
+# Contactez henock.barakael@mokoafrika.com pour vos clés API sandbox
 
 # 3. Premier paiement
 ```

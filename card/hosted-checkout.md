@@ -211,4 +211,4 @@ Cross-merchant strictement bloqué : un marchand ne peut consulter que ses propr
 
 - [Authentication](/authentication) — signature HMAC
 - [Webhooks](/card/webhooks) — vérification signature webhook
-- [Refunds](/card/refunds) — rembourser un paiement
+- Refunds — contactez `henock.barakael@mokoafrika.com` (API admin, accès restreint)

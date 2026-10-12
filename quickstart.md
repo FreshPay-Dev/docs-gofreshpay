@@ -4,7 +4,7 @@ Ce guide crée un paiement carte de 1 USD, redirige le client vers un checkout h
 
 ## Prérequis
 
-- Un compte marchand Moko (contact `dev@gofreshpay.com` pour vos clés sandbox)
+- Un compte marchand Moko (contact `henock.barakael@mokoafrika.com` pour vos clés sandbox)
 - `curl`, `python3` ou `node` (au choix)
 
 Vous avez besoin de :
@@ -190,5 +190,5 @@ Marquez la commande comme payée dans votre DB, envoyez le reçu, expédiez le p
 
 - [Custom Checkout (Microform)](/card/microform) — checkout intégré sur votre propre domaine
 - [Payment Links](/card/payment-links) — encaisser sans site web
-- [Refunds](/card/refunds) — remboursements partiels ou complets
+- Refunds — contactez `henock.barakael@mokoafrika.com` (API admin, accès restreint)
 - [Testing & Sandbox](/testing-sandbox) — comment tester

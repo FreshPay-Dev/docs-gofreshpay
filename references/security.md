@@ -21,18 +21,13 @@ Grâce au design de notre API, **votre serveur ne touche jamais un numéro de ca
 - **Rotation** : recommandée tous les 6 mois. Contactez support pour rotation coordonnée.
 - **Stockage** : vault (AWS Secrets Manager, HashiCorp Vault, Doppler) ou variable d'environnement chiffrée
 - **Ne jamais** : commit dans git, exposer côté frontend, envoyer par email/Slack en clair
-- **En cas de fuite** : contactez `dev@gofreshpay.com` immédiatement pour révocation et rotation d'urgence
+- **En cas de fuite** : contactez `henock.barakael@mokoafrika.com` immédiatement pour révocation et rotation d'urgence
 
 ### `callback_secret` (webhook HMAC)
 
 - Distinct de `api_secret`
 - Utilisé pour vérifier `X-FreshPay-Signature` des webhooks reçus
 - Mêmes règles de stockage
-
-### `X-Admin-Token` (refunds/voids/reporting)
-
-- Stocké dans un fichier root-only sur votre bastion (mode 600)
-- Rotation à la demande
 
 ## TLS / HTTPS
 
@@ -59,18 +54,6 @@ Score fraud calculé sur 0-100. Interprétation dans `riskInformation.score` de 
 
 Voir [3DS Payer Authentication](/card/3ds) pour l'intégration.
 
-## Contrôle d'accès par IP
-
-Les endpoints administratifs (`/api/v1/admin/*`) sont **doublement protégés** :
-
-1. Header `X-Admin-Token` (constant-time compare)
-2. Allowlist réseau nginx : bastion FreshPay `68.183.65.177` + localhost uniquement
-
-Si votre backoffice a besoin d'accéder à ces endpoints, contactez `dev@gofreshpay.com` pour :
-- Whitelist de votre IP publique
-- Proxy authentifié
-- Ou VPN tunneled
-
 ## Environnement séparé
 
 **Cross-environment strictement bloqué** — vous ne pouvez pas utiliser une clé `test_*` sur une tx prod (ni l'inverse). Notre serveur retourne 403 `Unauthorized environment`.
@@ -86,7 +69,7 @@ Chaque action sensible est loggée avec :
 - Timestamp UTC
 - Raison textuelle
 
-Logs conservés **12 mois** minimum. Requêtes d'audit possibles via `dev@gofreshpay.com`.
+Logs conservés **12 mois** minimum. Requêtes d'audit possibles via `henock.barakael@mokoafrika.com`.
 
 ## Rate limiting
 

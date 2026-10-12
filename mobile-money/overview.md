@@ -52,7 +52,7 @@ L'API MM utilise l'authentification **body-based** — pas de header HMAC. Vous 
 L'orthographe `merchant_secrete` est intentionnelle côté API MM — c'est le nom du champ historique. Ne pas confondre avec `merchant_secret` de l'API Card.
 :::
 
-Récupérez vos identifiants via `dev@gofreshpay.com` (sandbox) puis sur demande pour production.
+Récupérez vos identifiants via `henock.barakael@mokoafrika.com` (sandbox) puis sur demande pour production.
 
 ## Flow asynchrone
 

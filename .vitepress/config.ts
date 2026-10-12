@@ -51,8 +51,6 @@ export default defineConfig({
           { text: 'Custom Checkout (Microform)', link: '/card/microform' },
           { text: '3DS Payer Authentication', link: '/card/3ds' },
           { text: 'Payment Links', link: '/card/payment-links' },
-          { text: 'Refunds', link: '/card/refunds' },
-          { text: 'Voids', link: '/card/voids' },
           { text: 'Webhooks', link: '/card/webhooks' },
           { text: 'Secure Acceptance (legacy)', link: '/card/secure-acceptance-legacy' },
         ],

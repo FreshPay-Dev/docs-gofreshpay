@@ -12,7 +12,7 @@ Moko fournit **deux environnements distincts**, chacun avec son propre domaine e
 | **Argent réellement débité** | Non — simulation | Oui — vraies cartes |
 | **Pour qui** | Développement, intégration, QA | Trafic réel marchand |
 
-Pour obtenir vos clés sandbox + l'accès à un compte marchand de test, contactez `dev@gofreshpay.com`.
+Pour obtenir vos clés sandbox + l'accès à un compte marchand de test, contactez `henock.barakael@mokoafrika.com`.
 
 ::: tip Développez toujours sur sandbox d'abord
 Avant de recevoir vos clés `live`, vous devez démontrer un flow complet signé HMAC sur `uc-test.card.gofreshpay.com`. Voir la [checklist en bas de page](#passer-en-production).
@@ -41,7 +41,7 @@ En dehors : `HTTP 400 Currency '{currency}' is not supported. Allowed: CDF, USD`
 
 ## Cartes de test
 
-Les cartes de test spécifiques dépendent de notre profile Cybersource sandbox + de l'acquirer (Equity Bank Kenya). Pour recevoir la liste actuelle des PANs sandbox valides avec les scénarios associés (approve, decline, 3DS challenge, 3DS frictionless), contactez `dev@gofreshpay.com`.
+Les cartes de test spécifiques dépendent de notre profile Cybersource sandbox + de l'acquirer (Equity Bank Kenya). Pour recevoir la liste actuelle des PANs sandbox valides avec les scénarios associés (approve, decline, 3DS challenge, 3DS frictionless), contactez `henock.barakael@mokoafrika.com`.
 
 ::: warning
 Les cartes de test génériques Cybersource (comme `4111 1111 1111 1111`) **ne fonctionnent pas** sur notre profile — notre routing passe par Equity Bank Kenya qui a sa propre liste de BINs testables. L'équipe Moko peut fournir les BINs sur demande.
@@ -123,4 +123,4 @@ Checklist avant de recevoir vos clés `live` :
 - [ ] Support customer prêt pour gérer les cas DECLINED / 3DS failed
 - [ ] Réconciliation quotidienne prévue
 
-Une fois checklist ✅, contactez `dev@gofreshpay.com` pour recevoir vos clés production et basculer `MOKO_BASE_URL` vers `https://uc.card.gofreshpay.com`.
+Une fois checklist ✅, contactez `henock.barakael@mokoafrika.com` pour recevoir vos clés production et basculer `MOKO_BASE_URL` vers `https://uc.card.gofreshpay.com`.
