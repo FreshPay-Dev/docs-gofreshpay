@@ -11,7 +11,13 @@ Vous avez besoin de :
 
 - `MOKO_API_KEY` — votre `X-API-Key`
 - `MOKO_API_SECRET` — votre secret HMAC (à garder côté serveur uniquement)
-- Base URL : `https://uc.card.gofreshpay.com`
+- `MOKO_BASE_URL` — selon l'environnement :
+  - Sandbox (recommandé pour débuter) : `https://uc-test.card.gofreshpay.com`
+  - Production : `https://uc.card.gofreshpay.com`
+
+::: tip Commencez sur sandbox
+Dans ce guide nous utilisons les clés sandbox pour éviter tout débit réel. Voir [Testing & Sandbox](/testing-sandbox) pour les détails sur les deux environnements.
+:::
 
 ## 1. Signer une requête
 
@@ -27,7 +33,7 @@ from datetime import datetime, timezone
 
 API_KEY = "..."
 API_SECRET = "..."
-BASE = "https://uc.card.gofreshpay.com"
+BASE = "https://uc-test.card.gofreshpay.com"  # Sandbox. Prod: https://uc.card.gofreshpay.com
 
 body = json.dumps({
     "amount": 1.00,
@@ -65,7 +71,7 @@ import crypto from 'node:crypto';
 
 const API_KEY = '...';
 const API_SECRET = '...';
-const BASE = 'https://uc.card.gofreshpay.com';
+const BASE = 'https://uc-test.card.gofreshpay.com';  // Sandbox. Prod: https://uc.card.gofreshpay.com
 
 const body = JSON.stringify({
   amount: 1.00,
@@ -107,7 +113,7 @@ BODY='{"amount":1.00,"currency":"USD","merchant_reference":"INV-001","callback_u
 TS=$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)
 SIG=$(printf '%s%s' "$BODY" "$TS" | openssl dgst -sha256 -hmac "$API_SECRET" -r | awk '{print $1}')
 
-curl -X POST https://uc.card.gofreshpay.com/api/v1/payment/orders \
+curl -X POST https://uc-test.card.gofreshpay.com/api/v1/payment/orders \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $API_KEY" \
   -H "X-Timestamp: $TS" \
