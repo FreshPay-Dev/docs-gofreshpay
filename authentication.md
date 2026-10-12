@@ -12,7 +12,7 @@ L'environnement (development / production) est déterminé par votre profile mar
 
 ## Récupérer vos clés
 
-Contact `dev@gofreshpay.com` pour recevoir vos clés sandbox et démarrer les tests. Une fois validé, les clés prod sont livrées séparément.
+Contact `henock.barakael@mokoafrika.com` pour recevoir vos clés sandbox et démarrer les tests. Une fois validé, les clés prod sont livrées séparément.
 
 Chaque marchand reçoit :
 

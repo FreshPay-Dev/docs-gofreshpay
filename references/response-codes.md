@@ -36,22 +36,6 @@ Sur notre profile Cybersource `Equity Bank Standard Profile`, la règle `Non 3Ds
 Le Hosted Checkout (UC) gère 3DS automatiquement — pas d'action requise côté marchand.
 :::
 
-## Codes Void
-
-| rc | Signification |
-|---|---|
-| `100` | Void OK |
-| `236` | Transaction déjà voided ou reversée (idempotence : c'est un no-op) |
-| `246` | Cannot be voided at this time — settlement CS déjà passé. Utilisez [Refund](/card/refunds) à la place. |
-
-## Codes Refund
-
-| rc | Signification |
-|---|---|
-| `100` | Refund initié avec succès |
-
-Erreurs refund (montant invalide, tx introuvable, etc.) sont retournées avec status HTTP 4xx et un `detail` textuel — pas via reason_code.
-
 ## Codes de refus paiement courants
 
 Les codes ci-dessous sont documentés dans la référence Cybersource officielle. Ce sont les codes émis par la banque émettrice via le processeur (Equity Bank Kenya dans notre cas) :

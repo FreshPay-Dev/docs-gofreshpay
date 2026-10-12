@@ -45,7 +45,7 @@ Moko supporte 3 modes d'encaissement carte. Choisissez selon votre contexte.
 | Contrôle UX | Faible (Moko brand) | Total | Aucun (Moko brand) |
 | PCI scope | SAQ-A | SAQ-A | SAQ-A |
 | 3DS | Automatique | À intégrer explicitement | Automatique |
-| Refund | Disponible | Disponible | Disponible |
+| Refund / Void | Via support Moko | Via support Moko | Via support Moko |
 | Site web nécessaire | Oui | Oui | **Non** |
 
 ## Ce qui est commun à tous
@@ -54,7 +54,7 @@ Moko supporte 3 modes d'encaissement carte. Choisissez selon votre contexte.
 - **Devises** : USD, CDF (Congo)
 - **3DS** : 3D Secure 2.0 automatique via Cardinal Commerce
 - **Processeur** : Cybersource + Equity Bank Kenya
-- **Refunds** : API admin disponible pour tous les modes
+- **Refunds / Voids** : opérés par l'équipe support Moko sur demande (`henock.barakael@mokoafrika.com`)
 - **Chargebacks** : suivi automatique via reporting daily
 
 ## Prochaines étapes

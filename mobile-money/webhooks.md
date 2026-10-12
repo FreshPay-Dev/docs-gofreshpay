@@ -270,4 +270,4 @@ def webhook():
 
 :::
 
-Le chiffrement est **opt-in** — par défaut vos callbacks sont en clair. Pour activer, demandez vos clés AES et HMAC à `dev@gofreshpay.com`.
+Le chiffrement est **opt-in** — par défaut vos callbacks sont en clair. Pour activer, demandez vos clés AES et HMAC à `henock.barakael@mokoafrika.com`.

@@ -165,4 +165,4 @@ Chaque visite crée une tx séparée. Le lien passe à `EXHAUSTED` après 500 pa
 ## Voir aussi
 
 - [Webhooks](/card/webhooks) — recevoir les paiements
-- [Refunds](/card/refunds) — rembourser une tx issue d'un link
+- Refunds — contactez `henock.barakael@mokoafrika.com` (API admin, accès restreint)

@@ -31,7 +31,7 @@ Auto-deploy sur push `main` via Cloudflare Pages (voir `.github/workflows/deploy
 - `quickstart.md` — intégration 5 min
 - `authentication.md` — schéma HMAC
 - `testing-sandbox.md` — cartes de test, environnements
-- `card/` — endpoints carte (UC, Microform, 3DS, Payment Links, Refunds, Voids, Webhooks)
+- `card/` — endpoints carte (UC, Microform, 3DS, Payment Links, Webhooks)
 - `references/` — response codes, erreurs, sécurité
 - `mobile-money/` — MM (Phase 2)
 
@@ -43,5 +43,5 @@ Auto-deploy sur push `main` via Cloudflare Pages (voir `.github/workflows/deploy
 
 ## Contact
 
-- Support technique : `dev@gofreshpay.com`
+- Support technique : `henock.barakael@mokoafrika.com`
 - Bugs docs : issues GitHub sur ce repo

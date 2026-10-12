@@ -85,7 +85,7 @@ Pour toute erreur 5xx inattendue :
 
 1. Récupérer le `transaction_uuid` ou `cs_payment_id` de la tx concernée
 2. Timestamp UTC précis du moment de l'appel
-3. Envoyer à `dev@gofreshpay.com` avec context (endpoint, headers hors secrets, payload)
+3. Envoyer à `henock.barakael@mokoafrika.com` avec context (endpoint, headers hors secrets, payload)
 
 Réponse typique < 24h. Pour incidents prod bloquants, mentionnez `URGENT PROD` en objet.
 

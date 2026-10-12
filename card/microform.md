@@ -4,7 +4,7 @@ Construisez votre propre page checkout sur votre domaine, avec les champs carte 
 
 ## Prérequis marchand
 
-- Le flag `microform_enabled` doit être activé sur votre profile marchand. Contactez `dev@gofreshpay.com` pour l'activation.
+- Le flag `microform_enabled` doit être activé sur votre profile marchand. Contactez `henock.barakael@mokoafrika.com` pour l'activation.
 - Vous devez déclarer votre domaine dans `microform_allowed_origins` (Moko valide côté serveur que le `target_origin` de vos requêtes est bien dans cette liste).
 
 ## Flow complet
@@ -162,4 +162,4 @@ Ce sample signe le HMAC côté browser pour simplifier la démo. **Ne JAMAIS rep
 - [3DS Payer Authentication](/card/3ds) — flow complet setup/enroll/challenge
 - [Authentication](/authentication) — signature HMAC merchant
 - [Webhooks](/card/webhooks) — vérification signature callback
-- [Refunds](/card/refunds) — rembourser
+- Refunds — contactez `henock.barakael@mokoafrika.com` (API admin, accès restreint)

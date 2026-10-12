@@ -35,12 +35,12 @@ Secure Acceptance = solution "hosted checkout" Cybersource première génératio
 | 3DS | Automatique | Automatique |
 | Cybersource support | En maintenance | Actif (nouveau développement) |
 | Reason codes | Identiques | Identiques |
-| Refund / Void | Identique (via APIs admin) | Identique |
+| Refund / Void | Via support Moko (identique) | Via support Moko (identique) |
 | Webhook format | Identique | Identique |
 
 ## API identique côté marchand
 
-**Bonne nouvelle** : l'API marchand est **strictement identique** entre SA et UC. Le même `POST /api/v1/payment/orders` fonctionne, le même schéma webhook arrive, les mêmes refunds/voids marchent. La différence est **exclusivement backend** — le branching se fait via une variable d'environnement `USE_UC` sur le container Moko qui sert votre marchand.
+**Bonne nouvelle** : l'API marchand est **strictement identique** entre SA et UC. Le même `POST /api/v1/payment/orders` fonctionne, le même schéma webhook arrive, les refunds et voids restent gérés par le support Moko de la même façon. La différence est **exclusivement backend** — le branching se fait via une variable d'environnement `USE_UC` sur le container Moko qui sert votre marchand.
 
 Autrement dit : **si vous intégrez selon la doc [Hosted Checkout](/card/hosted-checkout) aujourd'hui, votre code fonctionnera pareil que vous soyez servi par un container SA ou UC**. La migration est transparente pour votre code.
 
@@ -82,7 +82,7 @@ Dates cibles à annoncer avec la communication officielle.
 
 Pour toute question SA / roadmap migration :
 
-- `dev@gofreshpay.com` (technique)
+- `henock.barakael@mokoafrika.com` (technique)
 - `support@gofreshpay.com` (question compte / cutover)
 
 ## Voir aussi
