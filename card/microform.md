@@ -157,6 +157,78 @@ Un exemple standalone (dev-only, ne pas déployer tel quel) est servi sur :
 Ce sample signe le HMAC côté browser pour simplifier la démo. **Ne JAMAIS reproduire ce pattern en production** — le secret HMAC doit toujours rester server-side. Utilisez un backend proxy comme dans le code plus haut.
 :::
 
+## Pièges connus
+
+Problèmes rencontrés lors d'intégrations réelles. À reconnaître et appliquer avant de livrer.
+
+### 1. `target_origin not in merchant allowlist` (HTTP 403)
+
+**Ce que vous voyez** sur `POST /api/v1/microform/capture-context` :
+
+```json
+{"detail": "target_origin 'https://votre-domaine.com' not in merchant allowlist. Allowed: ['https://pay.votre-domaine.com']"}
+```
+
+**Pourquoi** : le `target_origin` que vous envoyez doit figurer dans la liste `microform_allowed_origins` de votre merchant. Cette whitelist est signée dans le JWT capture-context et vérifiée par le SDK Cybersource Flex côté navigateur contre `window.location.origin`.
+
+**Fix** : ce n'est **pas self-service**. Contactez votre interlocuteur Moko pour ajouter la nouvelle origine à votre allowlist. Les origines existantes sont conservées — vos autres intégrations continuent de fonctionner pendant l'ajout. Changement pris en compte immédiatement (pas de restart, pas de cache).
+
+### 2. Le challenge 3-D Secure affiche un cadre vide
+
+**Ce que vous voyez** : après la saisie de l'OTP, le cadre du challenge reste vide. La console du navigateur affiche :
+
+```
+Refused to display 'http://acs1.<issuer>.com/...' in a frame because
+it set 'X-Frame-Options' to 'deny'.
+```
+
+**Pourquoi** : beaucoup d'ACS de banques émettrices positionnent `X-Frame-Options: deny` comme protection anti-clickjacking. La page de challenge ne peut pas être rendue dans une `<iframe>`. C'est appliqué par le navigateur ; impossible à contourner de votre côté ou du nôtre.
+
+**Fix** : soumettez le `stepUpUrl` via un form POST top-level, pas une iframe :
+
+```html
+<form action="{stepUpUrl}" method="POST" target="_top" id="stepup">
+  <input type="hidden" name="JWT" value="{accessToken}" />
+</form>
+<script>document.getElementById('stepup').submit();</script>
+```
+
+Persistez l'état nécessaire au retour (`transient_token`, `authentication_transaction_id`, `bill_to`) dans `sessionStorage` avant de soumettre — le navigateur quitte votre page et revient via le POST ACS → `return_url`.
+
+### 3. Le return URL doit accepter POST et vivre sur le domaine principal
+
+**Ce que vous voyez** : après l'OTP, soit `405 Method Not Allowed`, soit une page blanche avec `Refused to display 'https://api.votre-domaine.com/...' in a frame`.
+
+**Pourquoi** : l'ACS de la banque émettrice appelle votre `return_url` avec un **POST HTTP**. Deux pièges fréquents :
+
+- Route framework déclarée pour GET uniquement (Next.js `page.tsx` sans handler `POST`, routes Rails par défaut, etc.) → 405.
+- Return URL servie depuis un sous-domaine API derrière Cloudflare → Cloudflare injecte `X-Frame-Options: deny` sur les sous-domaines API par défaut, ce qui casse la transition ACS → page.
+
+**Fix** :
+- Accepter GET et POST sur le handler de return.
+- Servir le return URL depuis le **même domaine que la page checkout**, pas depuis un sous-domaine API.
+
+### 4. Warning de deprecation sur `flex.microform(options)`
+
+**Ce que vous voyez** dans la console du navigateur :
+
+```
+The microform method now requires a MicroformType as the first argument.
+Defaulting to 'card'
+```
+
+**Pourquoi** : Flex Microform v2 exige le type de champ comme premier argument positionnel. Le défaut implicite `'card'` fonctionne encore aujourd'hui mais sera retiré.
+
+**Fix** : `flex.microform('card', options)` au lieu de `flex.microform(options)`.
+
+### 5. `/charge` renvoie Reason Code 481 ("Non 3DS Reject")
+
+**Ce que vous voyez** : votre appel `/charge` réussit côté HTTP, mais la réponse Cybersource est `reason_code: "481"` et `status: "FAILED"` alors que tout paraissait correct en amont.
+
+**Pourquoi** : le profil acquéreur Equity impose la 3-D Secure comme obligatoire. Si `/charge` est appelé sans le `authentication_transaction_id` renvoyé par `/pa-enroll`, l'acquéreur considère la transaction comme non-authentifiée et la rejette.
+
+**Fix** : passez systématiquement l'`authentication_transaction_id` reçu de `/pa-enroll` dans le body de `/charge` — **y compris dans le chemin AUTHENTICATED (frictionless)** où aucun OTP n'a été demandé.
+
 ## Voir aussi
 
 - [3DS Payer Authentication](/card/3ds) — flow complet setup/enroll/challenge
