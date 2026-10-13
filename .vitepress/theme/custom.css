@@ -25,3 +25,8 @@
 .vp-doc div[class*='language-'] {
   border-radius: 6px;
 }
+
+/* Sélecteur de langue natif masqué : remplacé par le bouton FR / EN (LangSwitch.vue) */
+.VPNavBarTranslations {
+  display: none !important;
+}
