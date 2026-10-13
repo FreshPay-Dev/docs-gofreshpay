@@ -178,10 +178,6 @@ export default defineConfig({
     siteTitle: 'Moko Afrika Docs',
     logo: '/moko-logo.png',
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/FreshPay-Dev' },
-    ],
-
     search: {
       provider: 'local',
       options: {
