@@ -211,6 +211,22 @@ Cybersource POSTe sur `return_url` après le challenge (que ce soit un succès o
 2. Avoir les headers `X-Frame-Options: SAMEORIGIN` + `CSP: frame-ancestors 'self'`
 3. Notifier le parent frame via postMessage
 
+### Champs postés par Cybersource
+
+Le body est en `application/x-www-form-urlencoded`. Les champs à attendre (seul `TransactionId` est garanti présent, les autres dépendent du scénario) :
+
+| Champ | Toujours présent | Description |
+|---|---|---|
+| `TransactionId` | oui | Identifiant Cybersource de l'authentification 3DS. À matcher avec le `authentication_transaction_id` de `/pa-enroll`. |
+| `MD` | oui | Opaque Merchant Data. C'est votre propre `transaction_uuid` que vous avez passé à `/pa-enroll` — Cybersource vous le renvoie tel quel pour que vous retrouviez la session. |
+| `PaRes` | 3DS 1.0 uniquement | Payer Authentication Response signée. Seulement si la carte est en 3DS 1.0 (de plus en plus rare). |
+| `AuthenticationStatus` | 3DS 2.x | Résultat du challenge : `Y` (approved), `N` (declined), `A` (attempted), `U` (unavailable), `R` (rejected). |
+| `ECI` | 3DS 2.x | Electronic Commerce Indicator (`05`, `06`, `07` selon le niveau de liability shift). |
+| `CAVV` | 3DS 2.x succès | Cardholder Authentication Verification Value. Preuve que l'authentification a eu lieu. |
+| `DSTransactionId` | 3DS 2.x | Identifiant Directory Server (Visa/Mastercard). |
+
+Vous n'avez **pas besoin de parser ces champs vous-même** côté marchand — appelez `/api/v1/microform/charge` avec le `transaction_uuid` d'origine et notre backend ira les lire via Cybersource. Les champs ci-dessus servent uniquement si vous voulez logger ou faire du monitoring.
+
 Exemple FastAPI :
 
 ```python

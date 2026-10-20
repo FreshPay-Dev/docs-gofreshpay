@@ -49,7 +49,9 @@ Voir [3DS Payer Authentication](/card/3ds) pour le détail du flow 3DS.
 }
 ```
 
-Le `jwt` doit être passé au SDK Flex côté browser. Le `transaction_uuid` sert d'idempotency key sur les appels suivants (pa-setup, pa-enroll, charge).
+Le `jwt` doit être passé au SDK Flex côté browser.
+
+Le `transaction_uuid` est votre **identifiant d'attempt** pour ce paiement. Il est obligatoire sur `pa-setup`, `pa-enroll` et `charge`, et il protège contre les double-débits sur `charge` : rejouer `POST /charge` avec le même `transaction_uuid` sur une tx déjà SUCCESS ne débite jamais une seconde fois — vous recevez l'état existant. Ce n'est **pas** un idempotency-key générique (vous ne pouvez pas le fournir vous-même, et il ne couvre pas `/payment/orders`) : voir [Idempotence](/references/errors#idempotence) pour les règles exactes. Si la réponse de `/charge` est perdue (timeout réseau), vérifiez l'état via `POST /payment/status` avec le même `transaction_uuid` avant de retenter.
 
 ### Guards
 
@@ -59,8 +61,15 @@ Le `jwt` doit être passé au SDK Flex côté browser. Le `transaction_uuid` ser
 ## Endpoint 2 — Frontend Microform SDK
 
 ```html
-<!-- Dans votre page checkout, ajoutez le SDK CS -->
-<script src="https://flex.cybersource.com/microform/bundle/v2/flex-microform.min.js"></script>
+<!-- Dans votre page checkout. L'URL du SDK est renvoyée dans le JWT du
+     capture-context (champs clientLibrary + clientLibraryIntegrity). Lisez-la
+     depuis le JWT décodé plutôt qu'en dur — elle change selon l'environnement
+     (sandbox pointe vers testflex.cybersource.com, prod vers flex.cybersource.com)
+     et selon la version SDK que CyberSource vous attribue. -->
+<script
+  src="{{ clientLibrary }}"
+  integrity="{{ clientLibraryIntegrity }}"
+  crossorigin="anonymous"></script>
 
 <!-- Containers pour les champs carte (iframes CS) -->
 <div id="cs-number-container"></div>
