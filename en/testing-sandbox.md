@@ -41,73 +41,58 @@ Anything else: `HTTP 400 Currency '{currency}' is not supported. Allowed: CDF, U
 
 ## Test cards
 
-Our Cybersource sandbox profile + Equity Bank Kenya accept the standard Cybersource test cards. The cards below **do not charge real funds** — they simulate typical scenarios.
+Our Cybersource sandbox profile + Equity Bank Kenya accept the **official Cybersource test cards**. The cards below do not charge real funds — they simulate typical card-network and Payer Authentication (3DS 2.x) scenarios.
 
-### Visa — success scenarios
+::: warning No PAN-based declines on Cybersource sandbox
+Cybersource sandbox **does not implement PAN-based declines**. All the test cards below are APPROVE by default on authorization. To simulate a non-3DS refusal (CVV mismatch, insufficient funds, expired card, etc.) you must use **processor-specific amount triggers** on the Equity Bank Kenya side — those are documented in their own Testing Guide and are not universal. Contact `henock.barakael@mokoafrika.com` for the current list.
 
-| Card (PAN) | Expected result |
-|---|---|
-| `4242 4242 4242 4242` | ✅ **APPROVE** — standard success (the most commonly used) |
-| `4005 5192 0000 0004` | ✅ APPROVE — Visa debit |
-| `4111 1111 4555 1142` | ✅ APPROVE — frictionless 3DS |
+The `4000 0000 0000 00XX` PANs you may have seen in the Stripe or Checkout.com docs **do not work** on Cybersource.
+:::
 
-### Visa — failure scenarios
+### Standard (no 3DS) — APPROVE
 
-| Card (PAN) | Expected result | reason_code |
+| Brand | Card (PAN) | Expected result |
 |---|---|---|
-| `4000 0000 0000 0002` | ❌ DECLINED — generic decline | `203` |
-| `4000 0000 0000 0127` | ❌ DECLINED — CVV check failed | `230` |
-| `4000 0000 0000 9995` | ❌ DECLINED — insufficient funds | `210` |
-| `4000 0000 0000 0119` | ❌ ERROR — processing error (502 on the app side) | — |
-| `4000 0000 0000 0069` | ❌ DECLINED — expired card | `202` |
+| Visa | `4111 1111 1111 1111` | ✅ APPROVE (the most commonly used) |
+| Mastercard | `5555 5555 5555 4444` | ✅ APPROVE |
+| Amex | `3782 822463 10005` | ✅ APPROVE (if enabled on your merchant) |
 
-### Visa — 3D Secure 2.0 scenarios
+### Visa — 3D Secure 2.x (prefix `4456 5300 0000`)
 
-| Card (PAN) | Expected result |
+| Card (PAN) | 3DS scenario |
 |---|---|
-| `4000 0000 0000 1091` | 🔐 **CHALLENGE** — the Cardinal simulator opens; enter the simulated OTP to approve |
-| `4000 0025 0000 3155` | ✅ **FRICTIONLESS** — silent 3DS pass (recommended to test a flow without a popup) |
-| `4000 0000 0000 1026` | ❌ CHALLENGE then DECLINED (3DS auth OK, card declined afterwards) |
-| `4000 0000 0000 1018` | ❌ 3DS not enrolled — fallback to no-3DS |
+| `4456 5300 0000 0100` | ✅ **Frictionless SUCCESS** — no popup, auth succeeds (`PARes status = Y`) |
+| `4456 5300 0000 1013` | ❌ Frictionless FAILED (`DAUTHENTICATIONFAILED`) |
+| `4456 5300 0000 1021` | ⚠️ Attempts processing (`PARes status = A`) |
+| `4456 5300 0000 1039` | ⚠️ Unavailable (`PARes status = U`), proceed without liability shift |
+| `4456 5300 0000 1047` | ❌ Rejected (`PARes status = R`), not permitted for authorization |
+| `4456 5300 0000 1054` | ⚠️ Not available on lookup (`VERes enrolled = U`) |
+| `4456 5300 0000 1062` | ⚠️ Enrollment check error |
+| `4456 5300 0000 1070` | ⏱️ Time-out (10-12 s) |
+| `4456 5300 0000 1088` | ⚠️ Bypassed (`VERes enrolled = B`) |
+| `4456 5300 0000 1096` | 🔐 **Step-up challenge SUCCESS** — Cardinal simulator opens, enter the OTP → auth OK |
+| `4456 5300 0000 1104` | 🔐 **Step-up challenge FAILED** — challenge opens, auth declined (`PARes status = N`) |
+| `4456 5300 0000 1112` | ⚠️ Unavailable step-up (`PARes status = U`) |
 
-### Mastercard
+### Mastercard — 3D Secure 2.x (prefix `5200 0000 0000`)
 
-| Card (PAN) | Expected result |
-|---|---|
-| `5555 5555 5555 4444` | ✅ APPROVE — Mastercard credit |
-| `5200 8282 8282 8210` | ✅ APPROVE — Mastercard debit |
-| `2223 0000 1017 5833` | ✅ APPROVE — Mastercard 2-series (new BIN) |
-| `5200 0000 0000 0007` | ❌ DECLINED |
-| `5200 0000 0000 1096` | 🔐 3DS CHALLENGE |
-
-### Amex (if enabled on your merchant account)
-
-| Card (PAN) | Expected result |
-|---|---|
-| `3782 822463 10005` | ✅ APPROVE |
-| `3714 496353 98431` | ❌ DECLINED |
+Same last 4 digits as the Visa grid above — for example `5200 0000 0000 1005` for Frictionless SUCCESS, `5200 0000 0000 1096` for Step-up SUCCESS, `5200 0000 0000 1104` for Step-up FAILED.
 
 ### Common fields
 
 For all the test cards above:
 
 - **CVV**: `123` (or `1234` for Amex)
-- **Expiration**: any future date (e.g. `12/28`)
+- **Expiration**: the Cybersource docs recommend **January of the current year + 3** (e.g. `01/29` in 2026). Any future date is accepted.
 - **Name**: anything (e.g. `TEST USER`)
 - **Billing address**: anything, but provide at least `country` + `address_line1` + `city` + `postal_code` to avoid 400 validation errors
 
-### Amounts that trigger special scenarios
-
-With the "approve" cards above, the amount can influence the result on some Cybersource processors:
-
-| Amount USD | Behavior |
-|---|---|
-| `1.00` | Always approved (recommended for smoke tests) |
-| `100.00` | Approved + high risk score (tests the anti-fraud flag) |
-| `0.75` | **DECLINED** — simulates a below-minimum error (via app 400 code) |
-
 ::: tip Recommended primary card
-For a first complete smoke test (card → 3DS → webhook), use **`4000 0025 0000 3155`** (Visa frictionless 3DS) with an amount of `1.00 USD`. Fully simulated flow with no OTP popup.
+For a first complete smoke test (card → 3DS → webhook), use **`4456 5300 0000 0100`** (Visa frictionless 3DS SUCCESS) with an amount of `1.00 USD`. Fully simulated flow with no OTP popup, returns `SUCCESS` directly.
+
+To test the OTP challenge flow, use **`4456 5300 0000 1096`** — the Cardinal simulator opens, enter the simulated OTP (`1234`) → auth validated → SUCCESS.
+
+To test a failed 3DS flow, use **`4456 5300 0000 1104`** — the Cardinal simulator opens and returns an authentication failure → FAILED.
 :::
 
 ::: warning Never use real cards on sandbox

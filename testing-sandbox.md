@@ -41,73 +41,58 @@ En dehors : `HTTP 400 Currency '{currency}' is not supported. Allowed: CDF, USD`
 
 ## Cartes de test
 
-Notre profile Cybersource sandbox + Equity Bank Kenya acceptent les cartes de test standard Cybersource. Les cartes ci-dessous **ne débitent pas de vrais fonds** — elles simulent les scénarios typiques.
+Notre profile Cybersource sandbox + Equity Bank Kenya acceptent **les cartes de test officielles Cybersource**. Les cartes ci-dessous ne débitent pas de vrais fonds — elles simulent les scénarios typiques côté réseau cartes et côté Payer Authentication (3DS 2.x).
 
-### Visa — scénarios de succès
+::: warning Pas de "cartes de refus" en sandbox Cybersource
+Cybersource sandbox **n'implémente pas de PAN-based declines**. Toutes les cartes de test ci-dessous sont APPROVE par défaut sur l'autorisation. Pour simuler un refus hors 3DS (CVV mismatch, insufficient funds, expired card, etc.), il faut utiliser des **triggers amount processor-specific** côté Equity Bank Kenya — ces triggers sont documentés dans leur Testing Guide propre et ne sont pas universels. Contactez `henock.barakael@mokoafrika.com` pour la liste à jour.
 
-| Carte (PAN) | Résultat attendu |
-|---|---|
-| `4242 4242 4242 4242` | ✅ **APPROVE** — succès standard (la plus utilisée) |
-| `4005 5192 0000 0004` | ✅ APPROVE — Visa debit |
-| `4111 1111 4555 1142` | ✅ APPROVE — frictionless 3DS |
+Les PANs du type `4000 0000 0000 00XX` qu'on trouve dans la doc Stripe ou Checkout.com **ne fonctionnent pas** chez Cybersource.
+:::
 
-### Visa — scénarios d'échec
+### Standard (sans 3DS) — APPROVE
 
-| Carte (PAN) | Résultat attendu | reason_code |
+| Brand | Carte (PAN) | Résultat attendu |
 |---|---|---|
-| `4000 0000 0000 0002` | ❌ DECLINED — generic decline | `203` |
-| `4000 0000 0000 0127` | ❌ DECLINED — CVV check failed | `230` |
-| `4000 0000 0000 9995` | ❌ DECLINED — insufficient funds | `210` |
-| `4000 0000 0000 0119` | ❌ ERROR — processing error (502 côté app) | — |
-| `4000 0000 0000 0069` | ❌ DECLINED — expired card | `202` |
+| Visa | `4111 1111 1111 1111` | ✅ APPROVE (la plus utilisée) |
+| Mastercard | `5555 5555 5555 4444` | ✅ APPROVE |
+| Amex | `3782 822463 10005` | ✅ APPROVE (si enabled sur votre marchand) |
 
-### Visa — scénarios 3D Secure 2.0
+### Visa — 3D Secure 2.x (préfixe `4456 5300 0000`)
 
-| Carte (PAN) | Résultat attendu |
+| Carte (PAN) | Scénario 3DS |
 |---|---|
-| `4000 0000 0000 1091` | 🔐 **CHALLENGE** — simulateur Cardinal s'ouvre, tapez l'OTP simulé pour approuver |
-| `4000 0025 0000 3155` | ✅ **FRICTIONLESS** — passage 3DS silencieux (recommandé pour tester un flow sans popup) |
-| `4000 0000 0000 1026` | ❌ CHALLENGE puis DECLINED (3DS auth OK, carte refusée après) |
-| `4000 0000 0000 1018` | ❌ 3DS not enrolled — fallback no-3DS |
+| `4456 5300 0000 0100` | ✅ **Frictionless SUCCESS** — pas de popup, auth réussie (`PARes status = Y`) |
+| `4456 5300 0000 1013` | ❌ Frictionless FAILED (`DAUTHENTICATIONFAILED`) |
+| `4456 5300 0000 1021` | ⚠️ Attempts processing (`PARes status = A`) |
+| `4456 5300 0000 1039` | ⚠️ Unavailable (`PARes status = U`), proceed without liability shift |
+| `4456 5300 0000 1047` | ❌ Rejected (`PARes status = R`), not permitted for authorization |
+| `4456 5300 0000 1054` | ⚠️ Not available on lookup (`VERes enrolled = U`) |
+| `4456 5300 0000 1062` | ⚠️ Enrollment check error |
+| `4456 5300 0000 1070` | ⏱️ Time-out (10-12 s) |
+| `4456 5300 0000 1088` | ⚠️ Bypassed (`VERes enrolled = B`) |
+| `4456 5300 0000 1096` | 🔐 **Step-up challenge SUCCESS** — simulateur Cardinal s'ouvre, l'OTP valide → auth OK |
+| `4456 5300 0000 1104` | 🔐 **Step-up challenge FAILED** — challenge ouvre, auth refusée (`PARes status = N`) |
+| `4456 5300 0000 1112` | ⚠️ Unavailable step-up (`PARes status = U`) |
 
-### Mastercard
+### Mastercard — 3D Secure 2.x (préfixe `5200 0000 0000`)
 
-| Carte (PAN) | Résultat attendu |
-|---|---|
-| `5555 5555 5555 4444` | ✅ APPROVE — Mastercard credit |
-| `5200 8282 8282 8210` | ✅ APPROVE — Mastercard debit |
-| `2223 0000 1017 5833` | ✅ APPROVE — Mastercard 2-series (nouveau BIN) |
-| `5200 0000 0000 0007` | ❌ DECLINED |
-| `5200 0000 0000 1096` | 🔐 CHALLENGE 3DS |
-
-### Amex (si enabled sur votre marchand)
-
-| Carte (PAN) | Résultat attendu |
-|---|---|
-| `3782 822463 10005` | ✅ APPROVE |
-| `3714 496353 98431` | ❌ DECLINED |
+Mêmes 4 derniers chiffres que la grille Visa ci-dessus — par exemple `5200 0000 0000 1005` pour Frictionless SUCCESS, `5200 0000 0000 1096` pour Step-up SUCCESS, `5200 0000 0000 1104` pour Step-up FAILED.
 
 ### Champs communs
 
 Pour toutes les cartes test ci-dessus :
 
 - **CVV** : `123` (ou `1234` pour Amex)
-- **Expiration** : toute date dans le futur (ex: `12/28`)
+- **Expiration** : la doc Cybersource recommande **janvier de l'année courante + 3 ans** (ex: `01/29` en 2026). Toute date future reste acceptée.
 - **Nom** : au choix (ex: `TEST USER`)
 - **Adresse de facturation** : au choix, mais fournir au minimum `country` + `address_line1` + `city` + `postal_code` pour éviter les 400 validation
 
-### Montants qui déclenchent des scénarios spéciaux
-
-Avec les cartes "approve" ci-dessus, le montant peut influencer le résultat sur certains processeurs Cybersource :
-
-| Amount USD | Comportement |
-|---|---|
-| `1.00` | Approve systématique (recommandé pour smoke tests) |
-| `100.00` | Approve + risk score élevé (test flag anti-fraud) |
-| `0.75` | **DECLINED** — simule une erreur sous-minimum (via code 400 app) |
-
 ::: tip Carte principale recommandée
-Pour un premier smoke test complet (card → 3DS → webhook), utilisez **`4000 0025 0000 3155`** (Visa frictionless 3DS) avec montant `1.00 USD`. Flow entièrement simulé sans popup OTP.
+Pour un premier smoke test complet (card → 3DS → webhook), utilisez **`4456 5300 0000 0100`** (Visa frictionless 3DS SUCCESS) avec montant `1.00 USD`. Flow entièrement simulé sans popup OTP, retourne `SUCCESS` directement.
+
+Pour tester le flow challenge-OTP, utilisez **`4456 5300 0000 1096`** — le simulateur Cardinal ouvre, saisissez l'OTP simulé (`1234`) → auth validée → SUCCESS.
+
+Pour tester un flow 3DS refusé, utilisez **`4456 5300 0000 1104`** — le simulateur Cardinal ouvre puis renvoie un échec d'authentification → FAILED.
 :::
 
 ::: warning Ne jamais utiliser de vraies cartes sur sandbox
