@@ -61,7 +61,6 @@ Les PANs du type `4000 0000 0000 00XX` qu'on trouve dans la doc Stripe ou Checko
 
 | Carte (PAN) | Scénario 3DS |
 |---|---|
-| `4456 5300 0000 0100` | ✅ **Frictionless SUCCESS** — pas de popup, auth réussie (`PARes status = Y`) |
 | `4456 5300 0000 1013` | ❌ Frictionless FAILED (`DAUTHENTICATIONFAILED`) |
 | `4456 5300 0000 1021` | ⚠️ Attempts processing (`PARes status = A`) |
 | `4456 5300 0000 1039` | ⚠️ Unavailable (`PARes status = U`), proceed without liability shift |
@@ -87,12 +86,14 @@ Pour toutes les cartes test ci-dessus :
 - **Nom** : au choix (ex: `TEST USER`)
 - **Adresse de facturation** : au choix, mais fournir au minimum `country` + `address_line1` + `city` + `postal_code` pour éviter les 400 validation
 
-::: tip Carte principale recommandée
-Pour un premier smoke test complet (card → 3DS → webhook), utilisez **`4456 5300 0000 0100`** (Visa frictionless 3DS SUCCESS) avec montant `1.00 USD`. Flow entièrement simulé sans popup OTP, retourne `SUCCESS` directement.
+::: tip Cartes recommandées
+Pour un premier smoke test **sans popup OTP** (standard approve, pas de 3DS) : **`4111 1111 1111 1111`** avec montant `1.00 USD` → retourne `SUCCESS` directement.
 
-Pour tester le flow challenge-OTP, utilisez **`4456 5300 0000 1096`** — le simulateur Cardinal ouvre, saisissez l'OTP simulé (`1234`) → auth validée → SUCCESS.
+Pour tester le **flow challenge-OTP** (Cardinal simulator s'ouvre) : **`4456 5300 0000 1096`** → saisissez l'OTP simulé `1234` → auth validée → SUCCESS.
 
-Pour tester un flow 3DS refusé, utilisez **`4456 5300 0000 1104`** — le simulateur Cardinal ouvre puis renvoie un échec d'authentification → FAILED.
+Pour tester un **flow 3DS refusé** : **`4456 5300 0000 1104`** → le simulateur Cardinal ouvre puis renvoie un échec → FAILED.
+
+Note : CyberSource masque publiquement le vrai PAN "frictionless 3DS successful" (format `4XXXXX XX XXXX 27X1` dans leur doc). Pour tester cette variante spécifique, contactez `henock.barakael@mokoafrika.com`.
 :::
 
 ::: warning Ne jamais utiliser de vraies cartes sur sandbox

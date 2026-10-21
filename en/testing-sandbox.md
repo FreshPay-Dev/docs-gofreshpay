@@ -61,7 +61,6 @@ The `4000 0000 0000 00XX` PANs you may have seen in the Stripe or Checkout.com d
 
 | Card (PAN) | 3DS scenario |
 |---|---|
-| `4456 5300 0000 0100` | ✅ **Frictionless SUCCESS** — no popup, auth succeeds (`PARes status = Y`) |
 | `4456 5300 0000 1013` | ❌ Frictionless FAILED (`DAUTHENTICATIONFAILED`) |
 | `4456 5300 0000 1021` | ⚠️ Attempts processing (`PARes status = A`) |
 | `4456 5300 0000 1039` | ⚠️ Unavailable (`PARes status = U`), proceed without liability shift |
@@ -87,12 +86,14 @@ For all the test cards above:
 - **Name**: anything (e.g. `TEST USER`)
 - **Billing address**: anything, but provide at least `country` + `address_line1` + `city` + `postal_code` to avoid 400 validation errors
 
-::: tip Recommended primary card
-For a first complete smoke test (card → 3DS → webhook), use **`4456 5300 0000 0100`** (Visa frictionless 3DS SUCCESS) with an amount of `1.00 USD`. Fully simulated flow with no OTP popup, returns `SUCCESS` directly.
+::: tip Recommended cards
+For a first smoke test **without an OTP popup** (standard approve, no 3DS): **`4111 1111 1111 1111`** with an amount of `1.00 USD` → returns `SUCCESS` directly.
 
-To test the OTP challenge flow, use **`4456 5300 0000 1096`** — the Cardinal simulator opens, enter the simulated OTP (`1234`) → auth validated → SUCCESS.
+To test the **OTP challenge flow** (Cardinal simulator opens): **`4456 5300 0000 1096`** → enter the simulated OTP `1234` → auth validated → SUCCESS.
 
-To test a failed 3DS flow, use **`4456 5300 0000 1104`** — the Cardinal simulator opens and returns an authentication failure → FAILED.
+To test a **declined 3DS flow**: **`4456 5300 0000 1104`** → the Cardinal simulator opens and returns an authentication failure → FAILED.
+
+Note: Cybersource publicly masks the true "frictionless 3DS successful" PAN (format `4XXXXX XX XXXX 27X1` in their docs). To test that specific variant, contact `henock.barakael@mokoafrika.com`.
 :::
 
 ::: warning Never use real cards on sandbox
