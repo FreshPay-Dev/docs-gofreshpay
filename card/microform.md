@@ -16,7 +16,10 @@ Construisez votre propre page checkout sur votre domaine, avec les champs carte 
 4. Customer tape carte → SDK tokenize → transient_token
 5. Backend → POST /api/v1/microform/pa-setup → device data collection (DDC)
 6. Frontend : iframe caché POST DDC url (~5s fingerprint browser)
-7. Backend → POST /api/v1/microform/pa-enroll → challenge_required ? OTP : direct
+7. Backend → POST /api/v1/microform/pa-enroll
+     (body inclut navigator.userAgent, navigator.language, Accept header
+      → sinon Visa DS rejette, voir /card/3ds)
+   → challenge_required ? OTP : direct
 8. Si challenge : iframe visible stepUpUrl → customer tape OTP
 9. Backend → POST /api/v1/microform/charge (avec authentication_transaction_id)
 10. Moko internally: validate 3DS + auth + capture → SUCCESS
@@ -104,8 +107,22 @@ async function handlePay(formData) {
     }, (err, token) => err ? reject(err) : resolve(token));
   });
 
-  // Envoyer transientToken + transaction_uuid à votre backend qui fait pa-setup, pa-enroll, charge
-  // Voir /card/3ds pour le flow complet
+  // Envoyer transientToken + transaction_uuid à votre backend. Celui-ci doit
+  // appeler pa-setup, puis pa-enroll avec les 3 champs browser requis par
+  // EMVCo 3DS 2.x Table A.1 (voir /card/3ds), puis charge.
+  await fetch('/backend/microform/pay', {
+    method: 'POST',
+    body: JSON.stringify({
+      transient_token: transientToken,
+      transaction_uuid,
+      // Lus depuis CE browser, pas depuis votre serveur :
+      browser_user_agent: navigator.userAgent,
+      browser_language: navigator.language || 'en-US',
+      browser_accept_header:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      // ... + amount, bill_to, return_url, etc.
+    }),
+  });
 }
 ```
 
@@ -165,6 +182,24 @@ Un exemple standalone (dev-only, ne pas déployer tel quel) est servi sur :
 ::: danger
 Ce sample signe le HMAC côté browser pour simplifier la démo. **Ne JAMAIS reproduire ce pattern en production** — le secret HMAC doit toujours rester server-side. Utilisez un backend proxy comme dans le code plus haut.
 :::
+
+## Troubleshooting
+
+### `AUTHORIZED_RISK_DECLINED` avec « Non 3Ds Reject » (`reason_code: 481`)
+
+Cause la plus fréquente : votre appel `/pa-enroll` ne transmet pas les 3 champs browser requis par EMVCo 3DS 2.x Table A.1 (`browser_user_agent`, `browser_language`, `browser_accept_header`). Visa Directory Server refuse alors le AReq, aucun 3DS n'a lieu (`ecommerceIndicator=internet`, pas de cavv), et la règle Decision Manager rejette la charge.
+
+Diagnostic côté Moko :
+- Les logs serveur affichent `[PA enroll] veres=U indicator=internet` + un WARNING `directoryServerErrorCode=201`.
+- La trx CS garde `applicationInformation.reasonCode=481` et `ics_decision rFlag=DREJECT`.
+
+Correctif : récupérez les 3 valeurs depuis le browser du client final (voir `/card/3ds` pour le mapping exact). Ne les lisez **pas** depuis les headers du serveur merchant — ce sont les infos du browser du client qui comptent, pas celles de votre backend.
+
+### `AUTHENTICATION_FAILED` sur le charge
+Le challenge 3DS a été initié mais non complété : OTP mal tapé, timeout, user a fermé l'iframe, ou ACS issuer indisponible. Proposez un retry au client.
+
+### Chrome bloque l'iframe du challenge (Private Network Access)
+Si vous testez via `http://localhost:xxx` et que l'ACS public (`cardinaltrusted.com`) tente de rappeler votre page locale, Chrome peut bloquer l'iframe. En dev, exposez votre proxy via ngrok (https) ou lancez Chrome avec `--disable-features=PrivateNetworkAccessPreflightSupport`. En production (https public), le problème ne se pose pas.
 
 ## Voir aussi
 

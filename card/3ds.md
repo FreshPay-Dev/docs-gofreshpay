@@ -18,7 +18,9 @@ Si vous utilisez [Hosted Checkout](/card/hosted-checkout), 3DS est **automatique
 6. POST /api/v1/microform/charge            avec authentication_transaction_id
 ```
 
-Le backend Moko `charge` appelle automatiquement `/risk/v1/authentication-results` en interne pour committer le challenge avant l'auth. Vous n'avez pas besoin de valider vous-même.
+Après un challenge (`CHALLENGE_REQUIRED`), le backend Moko `charge` appelle automatiquement `/risk/v1/authentication-results` en interne pour committer le résultat avant l'auth. Vous n'avez pas besoin de valider vous-même.
+
+En frictionless (`AUTHENTICATED`), aucun validate n'est nécessaire : le cavv et l'eci sont déjà présents dans la réponse de `/pa-enroll` (ARes selon EMVCo 3DS 2.x). Le backend les injecte directement dans `/pts/v2/payments`.
 
 ## Endpoint — `POST /api/v1/microform/pa-setup`
 
@@ -114,11 +116,26 @@ Vérifie si un challenge est nécessaire, retourne soit `AUTHENTICATED` (skip ch
     "address_line1": "Av. Kasa-Vubu", "address_city": "Kinshasa",
     "address_postal_code": "00000", "address_country": "CD"
   },
-  "return_url": "https://checkout.your-shop.com/3ds-return"
+  "return_url": "https://checkout.your-shop.com/3ds-return",
+  "browser_user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ...",
+  "browser_language": "fr-FR",
+  "browser_accept_header": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 }
 ```
 
 `return_url` = URL de votre propre page qui recevra le callback POST après challenge. Voir plus bas.
+
+::: danger Champs browser obligatoires
+Les 3 champs `browser_user_agent`, `browser_language` et `browser_accept_header` sont **obligatoires** pour `deviceChannel=BROWSER` selon la spec EMVCo 3DS 2.x Table A.1. Sans eux, Visa Directory Server répond `errorCode=201 "A message element required as defined in Table A.1 is missing"`, l'authentification n'a pas lieu, `ecommerceIndicator=internet`, et la règle Decision Manager `Non 3Ds Reject` rejette la charge avec `reason_code: 481`.
+
+Lisez-les depuis le browser du client final :
+```javascript
+browser_user_agent: navigator.userAgent,
+browser_language: navigator.language || "en-US",
+browser_accept_header: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+```
+Ne les lisez **pas** depuis les headers du serveur merchant — ce sont les infos du browser du client final qui comptent, pas celles de votre backend proxy.
+:::
 
 ### Réponse (frictionless — sans OTP)
 
@@ -275,7 +292,8 @@ Voir [Microform](/card/microform#endpoint-3-post-api-v1-microform-charge).
 
 Si la charge échoue avec `reason_code: 481` (Non 3Ds Reject), vérifiez dans nos logs :
 
-- `[PA validate] cs_status=AUTHENTICATION_FAILED` — le challenge n'a jamais été complété
-- `[PA validate] cs_status=AUTHENTICATION_SUCCESSFUL eci=05` — 3DS OK, autre cause de reject
+- `[PA enroll] veres=U indicator=internet` + WARNING `directoryServerErrorCode=201` — l'appel `/pa-enroll` n'a pas transmis les 3 champs browser obligatoires, Visa DS a rejeté le AReq. Vérifiez que `browser_user_agent`, `browser_language` et `browser_accept_header` sont bien envoyés depuis le browser du client final.
+- `[PA validate] cs_status=AUTHENTICATION_FAILED` — le challenge n'a jamais été complété (user n'a pas tapé l'OTP à temps, timeout, ou refusé)
+- `[PA validate] cs_status=AUTHENTICATION_SUCCESSFUL eci=05` — 3DS OK, le reject vient d'une autre règle DM (BIN non-éligible, geo loc inconsistency, velocity, etc.)
 
 Cf. [Response codes](/references/response-codes) pour l'interprétation complète.
