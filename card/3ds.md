@@ -43,16 +43,24 @@ Prend le transient token, initie la collecte device fingerprint.
 {
   "reference_id": "12f3d71d-8916-44ce-baa4-a772b9345807",
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "device_data_collection_url": "https://centinelapi.cardinalcommerce.com/V1/Cruise/Collect"
+  "device_data_collection_url": "https://client.cardinaltrusted.com/centinelapi/V1/Cruise/Collect"
 }
 ```
+
+::: warning Host Cardinal variable — toujours lire depuis la réponse
+Le host de `device_data_collection_url` (et de `step_up_url` plus bas) **change** selon le profil CyberSource et évolue dans le temps : notre profil `drc_freshpay` prod renvoie actuellement du `client.cardinaltrusted.com` (migration CS fin 2024, remplace l'ancien `centinelapi.cardinalcommerce.com`). **Lisez toujours ces URLs depuis la réponse** `/pa-setup` et `/pa-enroll` — ne les codez jamais en dur. Côté Content-Security-Policy, autorisez `client.cardinaltrusted.com` **et** `cardinalcommerce.com` (plusieurs profils cohabitent encore).
+:::
 
 ## Device Data Collection (côté browser)
 
 Iframe caché qui poste le JWT vers l'URL DDC. Cybersource collecte le fingerprint browser (~2-5 secondes).
 
 ```javascript
-function runDDC(url, accessToken, timeoutMs = 8000) {
+// Timeout 15s : CS Cardinal stag peut mettre 7-10s pour compléter le
+// fingerprint, et un pa-enroll envoyé avant la fin → Visa Directory Server
+// répond veres=U et rejette ensuite au charge. En prod le postMessage
+// profile.completed résout en 2-5s, donc le 15s n'est qu'un filet.
+function runDDC(url, accessToken, timeoutMs = 15000) {
   return new Promise((resolve) => {
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
@@ -70,9 +78,17 @@ function runDDC(url, accessToken, timeoutMs = 8000) {
     // Timeout de sécurité (CS a un fallback si le DDC échoue)
     const t = setTimeout(() => { cleanup(); resolve(); }, timeoutMs);
 
-    // Attendre message postMessage de CS
+    // Attendre message postMessage de CS. Cardinal poste depuis la famille
+    // `cardinalcommerce.com` OU `cardinaltrusted.com` (migration CS fin 2024,
+    // nos profils actuels utilisent cardinaltrusted.com). Filtrer sur l'un
+    // seulement rate l'autre → le postMessage profile.completed n'arrive
+    // jamais et on attend le timeout systématiquement → fingerprint souvent
+    // incomplet au moment du pa-enroll → veres=U + Decision Manager reject.
     function onMsg(ev) {
-      if (!ev.origin.includes('cardinalcommerce.com')) return;
+      if (!ev.origin) return;
+      let host;
+      try { host = new URL(ev.origin).hostname; } catch { return; }
+      if (!/\.(cardinalcommerce|cardinaltrusted)\.com$/.test(host)) return;
       try {
         const data = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data;
         if (data.MessageType === 'profile.completed') {
@@ -157,7 +173,7 @@ Ne les lisez **pas** depuis les headers du serveur merchant — ce sont les info
 {
   "status": "CHALLENGE_REQUIRED",
   "authentication_transaction_id": "aeyEthCtnCswTcaZfju1",
-  "step_up_url": "https://centinelapi.cardinalcommerce.com/V2/Cruise/StepUp",
+  "step_up_url": "https://client.cardinaltrusted.com/centinelapi/V2/Cruise/StepUp",
   "access_token": "eyJhbGciOiJIUzI1NiIs...",
   "ecommerce_indicator": null
 }
